@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<script>window.GRAFIK_VIEWER_ONLY=true;</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Мій графік">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1d4ed8">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Графік чергувань — інсультне відділення</title>
+<style>
+  :root { --ink:#0f172a; --muted:#475569; --line:#334155; --soft:#e2e8f0; --blue:#1d4ed8; --green:#15803d; --amber:#fef3c7; --red:#b91c1c; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { overflow-x: hidden; }
+  select, input, textarea { max-width: 100%; }
+  label.f { max-width: 100%; min-width: 0; }
+  body.loading header.app { visibility: hidden; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #f1f5f9; }
+  header.app { background: #fff; border-bottom: 1px solid var(--soft); padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  header.app h1 { font-size: 18px; margin: 0 12px 0 0; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabs button, .btn { height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: var(--ink); font: 600 14px inherit; font-family: inherit; cursor: pointer; }
+  .tabs button[aria-selected="true"], .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn.danger { color: var(--red); border-color: #fecaca; }
+  .btn.small { height: 34px; padding: 0 10px; font-size: 13px; }
+  main { padding: 16px 20px 40px; }
+  .card { background: #fff; border: 1px solid var(--soft); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select { height: 36px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 8px; font: 14px inherit; font-family: inherit; color: var(--ink); background: #fff; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .warn { color: var(--red); font-weight: 600; font-size: 14px; }
+  .modes button[aria-pressed="true"] { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  /* the printable form */
+  .sheet { background: #fff; padding: 24px 28px; border: 1px solid var(--soft); border-radius: 4px; font-family: "Times New Roman", Georgia, serif; min-width: 1180px; }
+  .scroll { overflow-x: auto; }
+  .sheet .top { display: flex; justify-content: space-between; align-items: flex-start; font-size: 13px; font-weight: 700; line-height: 1.35; }
+  .sheet .top .col { display: flex; flex-direction: column; align-items: center; }
+  .sheet .title { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 28px; }
+  .sheet .title .t1 { font-size: 16px; font-weight: 700; }
+  .sheet .title .t2 { font-size: 15px; font-weight: 400; }
+  .sheet .title u { color: var(--blue); font-weight: 700; }
+  table.g { border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+  table.g th, table.g td { border: 1px solid var(--line); height: 24px; padding: 0; text-align: center; font-size: 12px; overflow: hidden; white-space: nowrap; }
+  table.g th { font-weight: 400; font-size: 11px; line-height: 1.1; }
+  table.g th.vt span { writing-mode: vertical-rl; transform: rotate(180deg); display: inline-block; }
+  table.g td.l { text-align: left; padding-left: 4px; }
+  table.g td.sm { font-size: 10px; }
+  table.g .we { background: repeating-linear-gradient(135deg, #fff 0 6px, #fca5a5 6px 7.5px); }
+  table.g th.day { cursor: pointer; }
+  table.g td.c { cursor: pointer; }
+  table.g td.c:hover { outline: 2px solid #93c5fd; outline-offset: -2px; }
+  table.g .duty { color: var(--blue); font-weight: 700; }
+  table.g .extra { color: var(--green); font-weight: 700; text-decoration: underline; }
+  table.g .manual { color: #7c2d12; font-weight: 700; font-style: italic; }
+  table.g .dayv { font-weight: 600; }
+  table.g .abs { background: var(--amber); color: #92400e; font-weight: 700; }
+  table.g .wish { color: var(--red); font-weight: 700; }
+  table.g .tot { color: var(--blue); font-weight: 700; }
+  table.g .mark { background: #fef9c3; cursor: pointer; }
+  .why { border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 6px 10px; margin-top: 6px; font-size: 14px; }
+  .why summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+  .why ul { margin: 6px 0; padding-left: 18px; line-height: 1.45; }
+  .why li { margin-bottom: 3px; }
+  .note { font-size: 12px; line-height: 1.45; margin-top: 8px; }
+  .signs { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-top: 14px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 10px; align-items: center; }
+  .legend b { font-weight: 700; }
+
+  /* staff editor */
+  table.st { border-collapse: collapse; width: 100%; }
+  table.st th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px; border-bottom: 1px solid var(--soft); }
+  table.st td { padding: 5px 6px; border-bottom: 1px solid #f1f5f9; }
+  table.st input.name { width: 100%; min-width: 180px; }
+  .sec { font-size: 13px; font-weight: 700; color: var(--muted); padding-top: 10px; }
+
+  /* my duties */
+  .list { display: flex; flex-direction: column; border: 1px solid var(--soft); border-radius: 10px; overflow: hidden; max-width: 560px; }
+  .list div { display: flex; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  .list div:last-child { border-bottom: 0; }
+
+  .views button[aria-pressed="true"] { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .dayc { border: 1px solid var(--soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; background: #fff; }
+  .dayc.we { background: #fff7f7; }
+  .dayc.unc { border-color: #fca5a5; }
+  .dayc.today { border: 2px solid var(--blue); }
+  .dayc .dh { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 14px; }
+  .dayc .it { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-top: 1px solid #f1f5f9; font-size: 14px; }
+  .dayc b.duty, .cal7 .duty { color: var(--blue); }
+  .dayc b.extra, .cal7 .extra { color: var(--green); text-decoration: underline; }
+  .dayc b.manual, .cal7 .manual { color: #7c2d12; font-style: italic; }
+  .cal7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; max-width: 560px; }
+  .cal7 .wh { text-align: center; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .cal7 .cd { min-height: 56px; border: 1px solid var(--soft); border-radius: 8px; padding: 4px 2px; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: space-between; cursor: pointer; font-family: inherit; color: var(--ink); }
+  .cal7 .cd.we { background: #fef2f2; }
+  .cal7 .cd .n { font-size: 12px; color: var(--muted); }
+  .cal7 .cd .v { font-size: 16px; font-weight: 700; min-height: 20px; }
+  .cal7 .abs { background: var(--amber); color: #92400e; border-radius: 4px; padding: 0 4px; }
+  .cal7 .wish { color: var(--red); }
+  body:not(.owner) #accessCard { display: none; }
+  body.nostaff .tabs button[data-tab="staff"] { display: none; }
+  body:not(.admin) .tabs button[data-tab="adm"] { display: none; }
+  body.viewer .tabs button[data-tab="adm"] { display: none; }
+  table.us { border-collapse: collapse; width: 100%; font-size: 14px; }
+  table.us th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px; border-bottom: 1px solid var(--soft); }
+  table.us td { padding: 6px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  table.us tr.blk td { background: #fef2f2; }
+  table.us .rt label { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+  table.us .acts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #e2e8f0; }
+  .badge.red { background: #fee2e2; color: #991b1b; } .badge.amb { background: #fef3c7; color: #92400e; } .badge.grn { background: #dcfce7; color: #166534; }
+  .logl { font-size: 13px; max-height: 420px; overflow: auto; border: 1px solid var(--soft); border-radius: 8px; }
+  .logl div { display: flex; gap: 10px; padding: 6px 10px; border-bottom: 1px solid #f1f5f9; }
+  .logl div span:first-child { color: var(--muted); white-space: nowrap; min-width: 128px; }
+  @media (max-width: 760px) {
+    table.us thead { display: none; }
+    table.us, table.us tbody, table.us tr, table.us td { display: block; width: 100%; }
+    table.us tr { border: 1px solid var(--soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+    table.us td { border: 0; padding: 4px 0; }
+    table.us td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; color: var(--muted); }
+    table.us select { width: 100%; }
+  }
+  body.nopub #pubBtn, body.nopub #pubInfo { display: none; }
+  body.nosched #modes, body.nosched #autoSt, body.nosched #clearMarks { display: none !important; }
+  body.nosched #carry { pointer-events: none; opacity: .6; }
+  .vonly { display: none; }
+  body.viewer .vonly { display: block; margin-bottom: 8px; }
+  body.viewer .ed { display: none !important; }
+  body.loading main { display: none; }
+  #loadingMsg { display: none; padding: 40px; text-align: center; color: var(--muted); }
+  body.loading #loadingMsg { display: block; }
+  /* login */
+  #gate { position: fixed; inset: 0; background: #f1f5f9; display: none; align-items: center; justify-content: center; z-index: 40; padding: 16px; }
+  body.gate #gate { display: flex; }
+  body.gate header.app, body.gate main, body.gate #loadingMsg { display: none !important; }
+  #gate form { background: #fff; border: 1px solid var(--soft); border-radius: 14px; padding: 24px; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+  #gate h1 { font-size: 20px; margin: 0 0 4px; }
+  #gate input { height: 44px; font-size: 16px; }
+  #gate .btn { height: 44px; font-size: 15px; }
+  #gateMsg { min-height: 20px; font-size: 14px; color: var(--red); white-space: pre-line; }
+  #who { font-size: 13px; color: var(--muted); }
+  @media (max-width: 760px) {
+    header.app { padding: 10px 12px; gap: 8px; }
+    header.app h1 { font-size: 16px; }
+    .tabs { flex-wrap: nowrap; overflow-x: auto; width: 100%; }
+    .tabs button { white-space: nowrap; flex: 0 0 auto; }
+    header.app > .row { margin-left: 0 !important; width: 100%; }
+    main { padding: 10px 10px 30px; }
+    .card { padding: 12px; }
+    .modes .btn { height: 38px; padding: 0 10px; }
+    label.f[style*="row"] { flex-wrap: wrap; }
+    #carry { width: 100%; }
+    table.st thead { display: none; }
+    table.st, table.st tbody, table.st tr, table.st td { display: block; width: 100%; }
+    table.st tr { border: 1px solid var(--soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+    table.st td { border: 0; padding: 4px 0; white-space: normal !important; }
+    table.st td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+    table.st input, table.st select { width: 100%; min-width: 0; }
+    table.st td .btn.small[data-wd] { margin-bottom: 4px; }
+    .list { max-width: none; }
+    .list div { flex-direction: column; gap: 2px; }
+  }
+  @media print {
+    @page { size: A4 landscape; margin: 7mm; }
+    body { background: #fff; }
+    header.app, .noprint { display: none !important; }
+    main { padding: 0; }
+    .card { border: 0; padding: 0; margin: 0; }
+    .scroll { overflow: visible; }
+    .sheet { border: 0; padding: 0; min-width: 0; width: 100%; }
+    table.g { width: 100%; }
+    table.g th, table.g td { height: 19px; font-size: 9.5px; }
+    table.g td.sm { font-size: 8px; }
+    table.g .mark { background: none; }
+    table.g td.c:hover { outline: none; }
+    .sheet .top { font-size: 11px; }
+    .note { font-size: 10px; }
+    .signs { font-size: 12px; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body class="loading">
+<header class="app">
+  <h1>Графік чергувань</h1>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="sched" aria-selected="true">Графік</button>
+    <button type="button" role="tab" data-tab="staff" aria-selected="false" class="ed">Склад і налаштування</button>
+    <button type="button" role="tab" data-tab="cal" aria-selected="false">Мої чергування / календар</button>
+    <button type="button" role="tab" data-tab="adm" aria-selected="false">Адміністрування</button>
+  </div>
+  <div class="row" style="margin-left:auto">
+    <label class="f" style="flex-direction:row;align-items:center;gap:8px">Місяць <input type="month" id="month"></label>
+    <span id="syncState" class="hint" aria-live="polite"></span>
+    <button type="button" class="btn small" id="roleBtn" hidden></button>
+    <button type="button" class="btn primary" id="printBtn">Друк А4</button>
+    <span id="who"></span>
+    <button type="button" class="btn small" id="logoutBtn">Вийти</button>
+  </div>
+</header>
+
+<div id="gate">
+  <form id="gateForm" autocomplete="on">
+    <h1>Графік чергувань</h1>
+    <div id="gateIntro" class="hint">Увійдіть з ім’ям і паролем, які вам видав адміністратор.</div>
+    <label class="f" id="gUserL">Ім’я для входу <input id="gUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+    <label class="f" id="gPassL">Пароль <input id="gPass" name="password" type="password" autocomplete="current-password"></label>
+    <label class="f" id="gNew1L" hidden>Новий пароль (мінімум 8 символів) <input id="gNew1" type="password" autocomplete="new-password"></label>
+    <label class="f" id="gNew2L" hidden>Повторіть новий пароль <input id="gNew2" type="password" autocomplete="new-password"></label>
+    <div id="gateMsg" role="alert"></div>
+    <button type="submit" class="btn primary" id="gateBtn">Увійти</button>
+    <button type="button" class="btn" id="gateOut" hidden>Вийти</button>
+  </form>
+</div>
+
+<div id="loadingMsg">Завантаження…</div>
+<main>
+  <!-- SCHEDULE -->
+  <section id="tab-sched">
+    <div class="card noprint">
+      <div class="row views" id="views" style="margin-bottom:10px"></div>
+      <div class="vonly hint">Ви переглядаєте затверджений графік. У «Моє» — ваші чергування; щоб подивитися чужі, оберіть інше прізвище.</div>
+      <div class="row modes ed" id="modes"></div>
+      <div class="row ed" style="margin-top:10px">
+        <span class="hint">Натисніть клітинку в рядку, щоб поставити позначку. Натисніть число дня в шапці, щоб позначити його святковим/вихідним.</span>
+      </div>
+      <div class="row ed" style="margin-top:8px">
+        <label class="f" style="flex-direction:row;align-items:center;gap:8px">Хто чергував останню добу попереднього місяця (години після півночі переходять на 1-ше число):
+          <select id="carry"></select></label>
+        <button type="button" class="btn small primary" id="autoSt">⚖ Підлаштувати ставки під відсутності</button>
+        <button type="button" class="btn small danger" id="clearMarks">Очистити позначки і правки цього місяця</button>
+      </div>
+      <div id="extraInfo" class="hint ed" style="margin-top:8px"></div>
+      <div id="warn" class="warn ed" style="margin-top:8px"></div>
+      <div id="why" class="ed" style="margin-top:6px"></div>
+      <div class="row ed" style="margin-top:10px"><button type="button" class="btn small primary" id="pubBtn">Опублікувати для працівників</button><span id="pubInfo" class="hint"></span></div>
+    </div>
+    <div class="card scroll" id="sheetCard">
+      <div class="sheet" id="sheet"></div>
+    </div>
+    <div class="card noprint" id="daysView" hidden></div>
+    <div class="card noprint" id="personView" hidden></div>
+  </section>
+
+  <!-- STAFF -->
+  <section id="tab-staff" hidden>
+    <div class="card">
+      <h2 style="margin:0 0 6px;font-size:17px">Склад відділення</h2>
+      <p class="hint" style="margin:0 0 10px">Однакове ПІБ у двох рядках — це одна людина з двома ставками (позначки й відпочинок рахуються спільно). «Дні чергувань»: оберіть дні тижня; «переважно» — спершу ці дні, інші лише за потреби; «тільки» — жодних інших днів.
+        Норма: робочі дні × (тижнева норма ÷ 5) × ставка. Тижневу норму задайте нижче, у «Правилах розрахунку».</p>
+      <table class="st">
+        <thead><tr><th>ПІБ</th><th>Посада</th><th>Ставка</th><th>Як рахувати</th><th>Денні год на 1,0 ставки</th><th>Дні чергувань</th><th></th></tr></thead>
+        <tbody id="staffBody"></tbody>
+      </table>
+      <div class="row" style="margin-top:10px">
+        <button type="button" class="btn" id="addDuty">+ Лікар (чергування)</button>
+        <button type="button" class="btn" id="addDay">+ Працівник (денні години)</button>
+      </div>
+    </div>
+    <div class="card">
+      <div id="accessCard">
+      <h2 style="margin:0 0 6px;font-size:17px">Користувачі і права</h2>
+      <p class="hint" style="margin:0 0 6px">Користувачів (ім’я, пароль, роль, права, блокування) створює і змінює адміністратор. Панель керування користувачами з’явиться тут на наступному етапі.</p>
+      <div id="accessBox"></div>
+      <hr style="border:0;border-top:1px solid var(--soft);margin:16px 0">
+      </div>
+      <h2 style="margin:0 0 6px;font-size:17px">Правила розрахунку</h2>
+      <p class="hint" style="margin:0 0 10px">Ці правила визначають, як програма рахує норму і розставляє чергування. Змініть їх під своє відділення — графік перерахується одразу.</p>
+      <div class="row" id="rules" style="align-items:flex-end"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 10px;font-size:17px">Шапка і підписи бланка</h2>
+      <div class="row" id="signs"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 10px;font-size:17px">Резервна копія</h2>
+      <div class="row">
+        <button type="button" class="btn" id="exportJson">Зберегти файл копії</button>
+        <label class="btn" style="display:inline-flex;align-items:center">Відновити з файлу <input type="file" id="importJson" accept=".json" style="display:none"></label>
+        <button type="button" class="btn danger" id="newDept">Нове відділення (порожній склад)</button>
+        <button type="button" class="btn danger" id="resetAll">Очистити все</button>
+      </div>
+      <p class="hint">Дані зберігаються на сервері й однакові на всіх пристроях. Файл копії — запасний варіант на випадок помилки; ним же переносяться дані зі старої версії на claude.ai.</p>
+    </div>
+  </section>
+
+  <!-- ADMIN -->
+  <section id="tab-adm" hidden>
+    <div class="card">
+      <h2 style="margin:0 0 6px;font-size:17px">Користувачі</h2>
+      <p class="hint" style="margin:0 0 10px">Ролі: <b>адміністратор</b> — усе, включно з цією сторінкою; <b>укладач</b> — складає графік (права нижче); <b>працівник</b> — бачить лише опублікований графік, свій рядок виділено.
+        Заблокований не може увійти, а відкрита в нього програма одразу перестає показувати дані.</p>
+      <div id="usersBox" class="hint">Завантаження…</div>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 10px;font-size:17px">Новий користувач</h2>
+      <div class="row" style="align-items:flex-end">
+        <label class="f">Ім’я для входу (латиницею) <input id="nuName" placeholder="напр. ivanenko" autocapitalize="none" spellcheck="false" style="width:170px"></label>
+        <label class="f">ПІБ <input id="nuFull" placeholder="Прізвище І.Б." style="width:190px"></label>
+        <label class="f">Роль <select id="nuRole"><option value="viewer">працівник</option><option value="editor">укладач</option><option value="admin">адміністратор</option></select></label>
+        <label class="f">Рядок у складі (мій графік) <select id="nuStaff"></select></label>
+        <label class="f">Тимчасовий пароль <input id="nuPass" style="width:150px"></label>
+        <button type="button" class="btn small" id="nuGen">Інший пароль</button>
+        <button type="button" class="btn primary" id="nuAdd">Створити</button>
+      </div>
+      <p class="hint">Людина ввійде з цим іменем і тимчасовим паролем, після чого програма попросить придумати власний.</p>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 10px;font-size:17px">Програма</h2>
+      <div class="row" style="align-items:flex-end">
+        <label class="f">Мінімальна версія програми <input id="cfgMin" style="width:110px" placeholder="1.0.0"></label>
+        <span class="hint" id="cfgLatest"></span>
+        <button type="button" class="btn small" id="updBtn" hidden>Перевірити оновлення</button>
+      </div>
+      <p class="hint">Старіші версії не відкриються, доки людина не оновиться (оновлення програма пропонує сама).</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin:6px 0"><input type="checkbox" id="cfgMaint" style="width:18px;height:18px"> Режим обслуговування — тимчасово закрити доступ усім, крім адміністраторів</label>
+      <label class="f">Повідомлення для користувачів <input id="cfgMsg" style="width:100%;max-width:560px" placeholder="напр. Оновлення графіка, спробуйте через годину"></label>
+      <div style="margin-top:10px"><button type="button" class="btn primary small" id="cfgSave">Зберегти</button></div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:17px">Журнал дій</h2><button type="button" class="btn small" id="logRefresh">Оновити</button></div>
+      <div id="logBox" class="logl" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section id="tab-cal" hidden>
+    <div class="card">
+      <div class="row">
+        <label class="f">Лікар <select id="calWho"></select></label>
+        <button type="button" class="btn primary" id="gBtn" style="align-self:flex-end">Файл календаря (.ics)</button>
+        <button type="button" class="btn" id="csvBtn" style="align-self:flex-end">Файл для імпорту (CSV)</button>
+      </div>
+      <div id="gState" class="hint" aria-live="polite" style="margin-top:8px"></div>
+      <p class="hint">Файл .ics відкривається Google Календарем, Outlook і календарем телефона — події з точним часом додаються одним натисканням.
+      У Google Календарі на комп’ютері: Налаштування → Імпорт і експорт → Імпортувати.</p>
+      <div id="calSum" style="margin:10px 0;font-weight:600"></div>
+      <div class="list" id="calList"></div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" hidden style="position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50">
+  <div role="dialog" aria-modal="true" aria-labelledby="modalText" style="background:#fff;border-radius:12px;padding:20px;max-width:440px;width:calc(100% - 32px);display:flex;flex-direction:column;gap:14px">
+    <div id="modalText" style="font-size:15px;line-height:1.45;white-space:pre-line;max-height:60vh;overflow:auto"></div>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="modalNo">Скасувати</button><button type="button" class="btn primary" id="modalYes">Так</button></div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite" style="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:60;max-width:90vw"></div>
+<script src="sb.js"></script>
+<script>
+(function () {
+  'use strict';
+  function ask(text, yes, no) {
+    return new Promise(function (res) {
+      var m = document.getElementById('modal');
+      document.getElementById('modalText').textContent = text;
+      document.getElementById('modalYes').textContent = yes || 'Так';
+      document.getElementById('modalNo').textContent = no || 'Скасувати';
+      m.hidden = false; m.style.display = 'flex';
+      var done = function (v) { m.hidden = true; m.style.display = 'none'; y.onclick = n.onclick = null; res(v); };
+      var y = document.getElementById('modalYes'), n = document.getElementById('modalNo');
+      y.onclick = function () { done(true); }; n.onclick = function () { done(false); };
+      y.focus();
+    });
+  }
+  var toastT;
+  function toast(t, ms) { var el = document.getElementById('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(function () { el.style.display = 'none'; }, ms || 3500); }
+  var KEY = 'grafik-cache-v1';
+  var profile = null, deptId = null, ver = null, online = false;
+  var H = 7.7;
+  var MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
+  var MONTHS_G = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+  var W = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+  var WFULL = ['понеділок','вівторок','середа','четвер',"п’ятниця",'субота','неділя'];
+
+  function uid() { return Math.random().toString(36).slice(2, 9); }
+  function defaults() {
+    var now = new Date(); var nm = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return {
+      ym: nm.getFullYear() + '-' + String(nm.getMonth() + 1).padStart(2, '0'),
+      dept: 'НАЗВА ВІДДІЛЕННЯ',
+      signs: { profkom: '', meddir: '', nurse: '', head: '', hosp: '' },
+      staff: [],
+      months: {}, prefMigrated: true
+    };
+  }
+  // the real data lives on the server; the browser keeps only a cache of the last loaded version
+  var S = defaults();
+  var saveT = null, saving = false, dirty = false;
+  function cacheLocal() { try { localStorage.setItem(KEY, JSON.stringify({ dept: deptId, ver: ver, S: S, pending: dirty })); } catch (e) {} }
+  function save() {
+    dirty = true; cacheLocal();
+    if (!online) { setSync('Немає інтернету — збережу, коли з’явиться'); return; }
+    clearTimeout(saveT); setSync('Зберігаю…'); saveT = setTimeout(flush, 900);
+  }
+  function flush() {
+    if (!online || saving || !dirty) return;
+    saving = true; dirty = false;
+    SB.rpc('save_state', { p_dept: deptId, p_data: S, p_version: ver }).then(function (v) {
+      saving = false; ver = v; cacheLocal(); setSync('Збережено'); if (dirty) flush();
+    }, function (e) {
+      saving = false; dirty = true;
+      if (e.status === 409 || e.code === 'PT409' || /version_conflict/.test(e.message)) { conflict(); return; }
+      if (e.code === '42501' || /no_rights|wrong_department/.test(e.message)) { dirty = false; setSync('Немає прав на зміни'); toast('Немає прав зберігати зміни. Зверніться до адміністратора.'); return; }
+      if (e.status === 401 || e.code === 'not_signed_in') { online = false; toGate('Сеанс завершився — увійдіть знову. Незбережені зміни залишились у цьому браузері.'); return; }
+      setSync(e.code === 'offline' ? 'Немає інтернету — збережу, коли з’явиться' : 'Не вдалося зберегти — спробую ще');
+      saveT = setTimeout(flush, 5000);
+    });
+  }
+  // somebody else saved first
+  function conflict() {
+    setSync('Конфлікт версій');
+    SB.select('dept_state?select=data,version,updated_at,updated_by&dept_id=eq.' + deptId).then(function (rows) {
+      var r = rows && rows[0]; if (!r) return;
+      ask('Поки ви редагували, графік змінив інший користувач (' + new Date(r.updated_at).toLocaleString('uk-UA') + ').\n\n«Завантажити їхню версію» — ваші останні зміни буде втрачено.\n«Залишити мою» — ваша версія замінить їхню.', 'Залишити мою', 'Завантажити їхню').then(function (mine) {
+        ver = r.version;
+        if (mine) { dirty = true; flush(); }
+        else { dirty = false; S = (r.data && r.data.staff) ? r.data : defaults(); afterLoad(); toast('Завантажено актуальну версію'); }
+      });
+    }, function () { setSync('Не вдалося зберегти — спробую ще'); saveT = setTimeout(flush, 5000); });
+  }
+  function setSync(t) { var el = document.getElementById('syncState'); if (el) el.textContent = t; }
+  window.addEventListener('beforeunload', function (e) { if (dirty || saving) { flush(); e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('online', function () { if (dirty) flush(); });
+  function M() { S.months[S.ym] = S.months[S.ym] || { abs: {}, hol: {}, manual: {}, carry: '' }; return S.months[S.ym]; }
+
+  var mode = 'В', manualVal = '24', activeTab = 'sched';
+  var MAXST = 1.75;
+  var carryDepth = 0;
+  function autoCarry() {
+    var y = +S.ym.slice(0, 4), mo = +S.ym.slice(5, 7) - 1, pd = new Date(y, mo - 1, 1);
+    var pym = pd.getFullYear() + '-' + String(pd.getMonth() + 1).padStart(2, '0'), pm = S.months[pym];
+    if (!pm || carryDepth > 11) return '';
+    var used = pm.pubAt || pm.carry || [pm.abs, pm.hol, pm.manual, pm.extraSt].some(function (o) { return o && Object.keys(o).some(function (k) { return typeof o[k] !== 'object' || Object.keys(o[k]).length; }); });
+    if (!used) return '';
+    var cur = S.ym, name = ''; carryDepth++;
+    try {
+      S.ym = pym; var G = generate();
+      if (LASTFULL < 24) G.rows.forEach(function (r) { var t = r.tm[G.D]; if (r.type === 'duty' && t && t[1] >= LASTFULL - 0.01) name = r.p; });
+    } catch (e) {}
+    S.ym = cur; carryDepth--;
+    return name;
+  }
+  // zavCover (завідувачка закриває ранок при перебрі) — особливість окремого відділення, тому за замовчуванням ВИМКНЕНО;
+  // відділення, якому це потрібно, вмикає його в «Правила розрахунку» (у збережених даних лишається явно увімкненим).
+  var CFG0 = { week: 38.5, maxSt: 1.75, duty: true, start: 8, splitLast: true, nightFrom: 22, nightTo: 6, restPref: 2, restMin: 1, extra: true, dayPart: 8, zavCover: false };
+  var START = 8, LASTFULL = 16, NF = 22, NT = 6, GAP_P = 3, GAP_M = 2, XMAX = 8, DUTY_ON = true, EXTRA_ON = true, ZAVCOVER = true;
+  function applyCfg() {
+    var c = S.cfg = S.cfg || {};
+    Object.keys(CFG0).forEach(function (k) { if (c[k] == null || (typeof CFG0[k] === 'number' && (typeof c[k] !== 'number' || isNaN(c[k])))) c[k] = CFG0[k]; });
+    H = Math.round(c.week / 5 * 100) / 100; MAXST = c.maxSt; START = c.start;
+    LASTFULL = (c.splitLast && START > 0) ? 24 - START : 24;
+    NF = c.nightFrom; NT = c.nightTo; GAP_P = Math.max(c.restPref, c.restMin) + 1; GAP_M = c.restMin + 1;
+    XMAX = c.dayPart; DUTY_ON = !!c.duty; EXTRA_ON = !!c.extra; ZAVCOVER = !!c.zavCover;
+    return c;
+  } // max total rate per person (main + temporary replacement)
+  function staffFor(md) {
+    var ex = md.extraSt || {}, names = Object.keys(ex).filter(function (n) { return ex[n] > 0; });
+    if (!names.length) return S.staff;
+    var lastIdx = {}, out = [];
+    S.staff.forEach(function (s, i) { if (s.type === 'duty') lastIdx[s.name.trim()] = i; });
+    S.staff.forEach(function (s, i) {
+      out.push(s);
+      names.forEach(function (n) { if (lastIdx[n] === i) out.push({ id: 'tmp-' + n, name: n, pos: 'сум.', st: ex[n], type: 'duty', tmp: true, sumisnyk: true, days: s.days, dmode: s.dmode }); });
+    });
+    return out;
+  }
+  function absCount(p) {
+    var md = M(), a = md.abs[p] || {}, y = +S.ym.slice(0, 4), mo = +S.ym.slice(5, 7) - 1, D = new Date(y, mo + 1, 0).getDate(), c = {};
+    for (var d = 1; d <= D; d++) { var x = a[d]; if (x === 'В' || x === 'Н' || x === 'Л') c[x] = (c[x] || 0) + 1; }
+    return c;
+  }
+  var ABS_NAME = { 'В': 'відпустка', 'Н': 'навчання', 'Л': 'лікарняний' };
+  function absText(c) { return Object.keys(c).map(function (k) { return ABS_NAME[k] + ' ' + c[k] + ' дн.'; }).join(', '); }
+  function proposeExtra() {
+    var md = M(), saved = md.extraSt; md.extraSt = {};
+    var G = generate(); md.extraSt = saved;
+    var need = 0;
+    G.rows.forEach(function (r) { if (r.type === 'duty' && r.h > r.norm) need += r.h - r.norm; });
+    need = r1(need + G.uncovered.length * 24);
+    var wdAll = 0; for (var d = 1; d <= G.D; d++) if (!G.off(d)) wdAll++;
+    var people = {};
+    S.staff.forEach(function (s) {
+      var p = s.name.trim(); people[p] = people[p] || { p: p, st: 0, duty: false, only: false };
+      people[p].st += s.st; if (s.type === 'duty') { people[p].duty = true; if (s.dmode === 'only') people[p].only = true; }
+    });
+    var absent = [], cand = [];
+    Object.keys(people).forEach(function (p) {
+      var o = people[p], c = absCount(p), n = (c['В'] || 0) + (c['Н'] || 0) + (c['Л'] || 0);
+      o.wd = 0; for (var d = 1; d <= G.D; d++) if (!G.off(d)) { var a = G.ab(p, d); if (a !== 'В' && a !== 'Н' && a !== 'Л') o.wd++; }
+      if (n && o.duty) absent.push(p + ': ' + absText(c));
+      if (o.duty && !o.only && o.wd >= wdAll * 0.6) cand.push(o);
+    });
+    var add = {}, left = need, guard = 0;
+    while (left > 0.05 && guard++ < 40) {
+      cand.sort(function (a, b) { return (a.st + (add[a.p] || 0)) - (b.st + (add[b.p] || 0)) || b.wd - a.wd; });
+      var c = cand.filter(function (o) { return o.st + (add[o.p] || 0) + 0.25 <= MAXST + 1e-9; })[0];
+      if (!c) break;
+      var cap = c.wd * H * 0.25;
+      if (left < cap * 0.5) break; // a few hours over the norm are not worth an extra 0.25 rate
+      add[c.p] = (add[c.p] || 0) + 0.25; left = r1(left - cap);
+    }
+    return { need: need, add: add, left: Math.max(0, r1(left)), absent: absent, uncovered: G.uncovered };
+  }
+  function autoStavky() {
+    var md = M(), P = proposeExtra(), names = Object.keys(P.add), had = md.extraSt && Object.keys(md.extraSt).length;
+    var head = P.absent.length ? 'Відсутні цього місяця:\n• ' + P.absent.join('\n• ') + '\n\n' : 'Відсутностей (В/Н/Л) у лікарів цього місяця немає.\n\n';
+    if (!names.length) {
+      var msg = head + (P.need > 0.05 ? 'Над нормами потрібно ' + fmt(P.need) + ' год — це менше за пів ставки 0,25, тому додавати ставки не варто.' : 'Доби закриваються в межах звичайних ставок — додаткові не потрібні.');
+      if (P.left > 0.05 && P.need > 0.05) msg = head + 'Над нормами потрібно ' + fmt(P.need) + ' год, але всі лікарі вже мають максимум ' + fmt(MAXST) + ' ставки або чергують лише в свої дні.';
+      if (had) { ask(msg + '\n\nПрибрати тимчасові ставки заміщення цього місяця?', 'Прибрати').then(function (ok) { if (ok) { md.extraSt = {}; save(); renderAll(); } }); }
+      else ask(msg, 'Зрозуміло');
+      return;
+    }
+    var txt = head + 'Щоб закрити всі доби, над нормами потрібно ' + fmt(P.need) + ' год' + (P.uncovered.length ? ' (включно з незакритими добами: ' + P.uncovered.join(', ') + ')' : '') + '.\n\nПропоную тимчасово (лише на цей місяць) додати ставку заміщення:\n• ' +
+      names.map(function (n) { return n + ' +' + stLabel(P.add[n]); }).join('\n• ') +
+      (P.left > 0.05 ? '\n\nНе вистачить ще близько ' + fmt(P.left) + ' год — лікарі вже на максимумі ' + fmt(MAXST) + ' ставки.' : '') +
+      '\n\nУ бланку це буде окремий рядок «заміщення» під лікарем. Склад в інших місяцях не зміниться.';
+    ask(txt, 'Застосувати').then(function (ok) { if (!ok) return; md.extraSt = P.add; save(); renderAll(); toast('Ставки заміщення додано на цей місяць'); });
+  }
+  var view = window.innerWidth < 760 ? 'days' : 'sheet', personSel = '';
+  var role = null, asViewer = false, pub = {}, pubState = {}, pubTry = {};
+  var meName = '';
+  function viewer() { return role === 'viewer' || asViewer; }
+  var isOwner = false, booted = false;
+  var FULL = { sched: true, staff: true, pub: true };
+  var rights = { sched: false, staff: false, pub: false };
+  function noSched() { return viewer() || !rights.sched; }
+  var ROLE_NAME = { admin: 'адміністратор', editor: 'укладач', viewer: 'працівник' };
+  function renderAccess() {
+    var box = document.getElementById('accessBox'); if (!box) return;
+    box.innerHTML = '<p class="hint">Ви увійшли як <b>' + esc(profile ? profile.username : '') + '</b> (' + esc(profile ? ROLE_NAME[profile.role] : '') + ').</p>';
+  }
+  var PUBKEY = 'grafik-pub-cache';
+  function pubCache(ym, val) {
+    try {
+      var c = JSON.parse(localStorage.getItem(PUBKEY) || '{}');
+      if (val === undefined) return c[ym] || null;
+      c[ym] = val; var ks = Object.keys(c).sort(); while (ks.length > 3) delete c[ks.shift()];
+      localStorage.setItem(PUBKEY, JSON.stringify(c));
+    } catch (e) { return null; }
+  }
+  function loadPub(ym, force) {
+    if (!force && (pub[ym] || pubState[ym] === 'loading' || pubState[ym] === 'none' || (pubState[ym] === 'err' && Date.now() - (pubTry[ym] || 0) < 30000))) return;
+    pubState[ym] = 'loading'; pubTry[ym] = Date.now();
+    SB.select('published?select=data,published_at&dept_id=eq.' + deptId + '&ym=eq.' + ym).then(function (rows) {
+      if (rows && rows[0]) { pub[ym] = rows[0].data; pubState[ym] = 'done'; pubCache(ym, rows[0].data); }
+      else { delete pub[ym]; pubState[ym] = 'none'; }
+      renderAll();
+    }, function (e) {
+      if (e.status === 401) { toGate('Сеанс завершився — увійдіть знову.'); return; }
+      var c = pubCache(ym);
+      if (c) { pub[ym] = c; pubState[ym] = 'cache'; setSync('Немає зв’язку — показано збережену копію'); } else pubState[ym] = 'err';
+      renderAll();
+    });
+  }
+  function fromSnap(P) {
+    var dow = function (d) { return (new Date(P.y, P.mo, d).getDay() + 6) % 7; }, hol = P.hol || {}, abs = P.abs || {}; START = P.start != null ? P.start : 8;
+    return { y: P.y, mo: P.mo, D: P.D, dow: dow, off: function (d) { return dow(d) >= 5 || !!hol[d]; }, ab: function (p, d) { return (abs[p] && abs[p][d]) || ''; },
+      rows: P.rows, uncovered: P.uncovered || [], md: { hol: hol, abs: abs, carry: '', manual: {} }, snap: true };
+  }
+  function currentG() {
+    if (!viewer()) return generate();
+    var P = pub[S.ym]; if (!P) { loadPub(S.ym); return null; }
+    return fromSnap(P);
+  }
+  function snapshot() {
+    var G = generate(), abs = {};
+    Object.keys(G.md.abs).forEach(function (p) { var o = G.md.abs[p], q = {}; Object.keys(o).forEach(function (d) { if (o[d] === 'В' || o[d] === 'Н' || o[d] === 'Л') q[d] = o[d]; }); if (Object.keys(q).length) abs[p] = q; });
+    return { v: 1, ym: S.ym, y: G.y, mo: G.mo, D: G.D, dept: S.dept, signs: S.signs, note: S.note || '', title: S.title || '', start: START, hol: G.md.hol, abs: abs, uncovered: G.uncovered, at: Date.now(),
+      rows: G.rows.map(function (r) { return { id: r.id, p: r.p, type: r.type, st: r.st, s: { pos: r.s.pos, sumisnyk: r.s.sumisnyk || false }, c: r.c, k: r.k, tm: r.tm, h: r.h, n: r.n, wd: r.wd, wdN: r.wdN, norm: r.norm, zcov: r.zcov || null }; }) };
+  }
+  function sigOf(sn) {
+    var t = JSON.stringify([sn.rows.map(function (r) { return [r.p, r.st, r.c, r.tm]; }), sn.hol, sn.abs, sn.signs, sn.dept, sn.note, sn.title, sn.start]), h = 0;
+    for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+    return String(h);
+  }
+  function publish() {
+    if (!rights.pub) return;
+    if (!online) { toast('Немає зв’язку з сервером — публікація неможлива'); return; }
+    var sn = snapshot();
+    ask('Опублікувати графік на ' + MONTHS[sn.mo] + ' ' + sn.y + ' для працівників?\nВони бачитимуть саме цю версію, доки ви не опублікуєте нову. Позначки × і пояснення норм вони не побачать.', 'Опублікувати').then(function (ok) {
+      if (!ok) return;
+      SB.upsert('published', { dept_id: deptId, ym: sn.ym, data: sn, published_at: new Date().toISOString(), published_by: SB.userId() }).then(function () {
+        var m = M(); m.pubAt = sn.at; m.pubSig = sigOf(sn); pub[sn.ym] = sn; pubState[sn.ym] = 'done'; save(); renderAll(); toast('Опубліковано — працівники вже бачать графік');
+        SB.rpc('log_event', { p_action: 'publish', p_details: { ym: sn.ym } }).then(null, function () {});
+      }, function (e) { toast(e.status === 403 || e.code === '42501' ? 'Немає права публікувати. Зверніться до адміністратора.' : 'Не вдалося опублікувати. Спробуйте ще раз.'); });
+    });
+  }
+  function renderPubInfo() {
+    var el = document.getElementById('pubInfo'); if (!el || viewer()) return;
+    var m = M(); el.style.color = '';
+    if (!m.pubAt) { el.textContent = 'Цей місяць ще не опубліковано — працівники його не бачать.'; return; }
+    var t = new Date(m.pubAt), when = t.toLocaleDateString('uk-UA') + ' о ' + t.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    var same = m.pubSig === sigOf(snapshot());
+    el.textContent = same ? 'Опубліковано ' + when + '. Працівники бачать актуальну версію.' : 'Опубліковано ' + when + ', але після цього були зміни — опублікуйте знову.';
+    if (!same) el.style.color = '#b45309';
+  }
+  function renderNoPub() {
+    var st = pubState[S.ym];
+    document.getElementById('views').innerHTML = '';
+    document.getElementById('daysView').hidden = true; document.getElementById('personView').hidden = true;
+    document.getElementById('sheetCard').hidden = false;
+    var msg = st === 'none' ? 'Графік на ' + MONTHS[+S.ym.slice(5, 7) - 1] + ' ' + S.ym.slice(0, 4) + ' ще не опубліковано.' : st === 'err' ? 'Немає зв’язку з сервером. Спробуйте трохи пізніше.' : 'Завантаження графіка…';
+    document.getElementById('sheet').innerHTML = '<p style="font-family:Inter,system-ui,sans-serif;padding:12px 0;font-size:15px">' + msg + '</p>';
+  }
+  function renderRoleBtn() {
+    var b = document.getElementById('roleBtn');
+    b.hidden = role !== 'editor';
+    b.textContent = asViewer ? '← До складання' : 'Як бачать працівники';
+  }
+  function minePersonHtml(G) {
+    var names = []; G.rows.forEach(function (r) { if (names.indexOf(r.p) < 0) names.push(r.p); });
+    var me = names.indexOf(meName) >= 0 ? meName : names[0];
+    var mine = G.rows.filter(function (r) { return r.p === me; });
+    var h = '<label class="f">Я — <select id="meSel">' + names.map(function (n) { return '<option' + (n === me ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></label>';
+    var tot = 0, nights = 0; mine.forEach(function (r) { tot += r.h; nights += r.n; });
+    var ps = pieces(G, me), now = new Date(), first = new Date(G.y, G.mo, 1);
+    var today = (now.getFullYear() === G.y && now.getMonth() === G.mo) ? now.getDate() : (first > now ? 0 : 99);
+    var next = ps.filter(function (p) { return p.d >= today && p.e > 0; })[0];
+    h += '<div style="margin:10px 0;font-weight:600">' + fmt(tot) + ' год за ' + MONTHS[G.mo] + (nights ? ' · нічних ' + fmt(nights) : '') + '</div>';
+    if (next) h += '<div class="why" style="background:#eff6ff;border-color:#bfdbfe">Наступне: <b>' + next.d + ' ' + MONTHS_G[G.mo] + '</b>, ' + WFULL[G.dow(next.d)] + ' · ' + next.label + ' ' + fmt(next.len) + ' год · ' + hm(next.s) + '–' + hm(next.e) + '</div><div style="height:10px"></div>';
+    h += '<div class="cal7">' + W.map(function (w) { return '<div class="wh">' + w + '</div>'; }).join('');
+    for (var i = 0; i < G.dow(1); i++) h += '<div></div>';
+    for (var d = 1; d <= G.D; d++) {
+      var r = mine.filter(function (x) { return x.c[d]; })[0], v = r ? r.c[d] : '', a = G.ab(me, d), vc = r ? (r.k[d] || '') : '';
+      if (!v && a) { v = a; vc = 'abs'; }
+      h += '<div class="cd' + (G.off(d) ? ' we' : '') + '" style="cursor:default' + (d === today ? ';border:2px solid #1d4ed8' : '') + '"><span class="n">' + d + '</span><span class="v ' + vc + '">' + esc(v) + '</span></div>';
+    }
+    h += '</div><div class="list" style="margin-top:12px">' + (ps.map(function (p) {
+      return '<div><span><b>' + p.d + ' ' + MONTHS_G[G.mo] + '</b>, ' + WFULL[G.dow(p.d)] + '</span><span>' + p.label + ' · ' + fmt(p.len) + ' год · ' + hm(p.s) + '–' + hm(p.e) + '</span></div>';
+    }).join('') || '<div><span class="hint">Немає записів у цьому місяці</span></div>') + '</div>';
+    h += '<div class="hint" style="margin-top:8px">Додати свої чергування в Google Календар — у вкладці «Мої чергування / календар».</div>';
+    return h;
+  }
+
+  var r1 = function (x) { return Math.round(x * 10) / 10; };
+  var fmt = function (x) { return String(r1(x)).replace('.', ','); };
+  var hmm = function (x) { var h = Math.floor(x + 1e-9), m = Math.round((x - h) * 60); if (m === 60) { h++; m = 0; } return m ? h + '.' + (m < 10 ? '0' : '') + m : String(h); };
+  var hm = function (o) { var mins = Math.round((START + o) * 60); if (mins === 1440) return '24:00'; mins = ((mins % 1440) + 1440) % 1440; var h = Math.floor(mins / 60), m = mins % 60; return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; };
+  var nightOf = function (s, e) { var len = (NT - NF + 24) % 24, t = 0; for (var k = -1; k <= 1; k++) { var a = NF - START + 24 * k; t += Math.max(0, Math.min(e, a + len) - Math.max(s, a)); } return t; };
+  var nightOld = function (s, e) { return Math.max(0, Math.min(e, 22) - Math.max(s, 14)) + Math.max(0, Math.min(e, -2) - Math.max(s, -10)); };
+  function parseVal(t) {
+    t = String(t).trim().replace(',', '.');
+    if (/^\d+\.\d{2}$/.test(t) && !/^\d+\.\d0$/.test(t)) { var p = t.split('.'); return +p[0] + (+p[1]) / 60; }
+    var v = parseFloat(t); return isNaN(v) ? 0 : v;
+  }
+
+  /* ---------------- generator ---------------- */
+  function generate() {
+    applyCfg();
+    var y = +S.ym.slice(0, 4), mo = +S.ym.slice(5, 7) - 1;
+    var D = new Date(y, mo + 1, 0).getDate();
+    var md = M();
+    var dow = function (d) { return (new Date(y, mo, d).getDay() + 6) % 7; };
+    var off = function (d) { return dow(d) >= 5 || !!md.hol[d]; };
+    var ab = function (p, d) { return (md.abs[p] && md.abs[p][d]) || ''; };
+    var away = function (p, d) { var x = ab(p, d); return x === 'В' || x === 'Н' || x === 'Л'; };
+    var rows = staffFor(md).map(function (s) {
+      var p = s.name.trim();
+      var wd = 0; for (var d = 1; d <= D; d++) if (!off(d) && !away(p, d)) wd++;
+      return { s: s, id: s.id, p: p, type: s.type, st: s.st, wdN: wd, c: {}, k: {}, tm: {}, h: 0, n: 0, wd: 0, norm: r1(wd * H * s.st), over: [], short: null, manH: 0, carry: 0 };
+    });
+    var prefDays = function (r) { return (r.s.days && r.s.days.length) ? r.s.days : null; };
+    var prefOK = function (r, d) { var pd = prefDays(r); return !pd || pd.indexOf(dow(d)) >= 0; };
+    var onlyBad = function (r, d) { return r.s.dmode === 'only' && !prefOK(r, d); };
+    var busy = {}, last = {};
+    var isBusy = function (p, d) { return busy[p] && busy[p][d]; };
+    var mark = function (p, d) { busy[p] = busy[p] || {}; busy[p][d] = true; };
+    var cover = {}, coverEnd = {};
+    var duty = rows.filter(function (r) { return r.type === 'duty'; });
+    var whyFree = function (r, from, to) {
+      var st = { work: 0, rest: 0, abs: {}, only: 0 };
+      for (var d = from; d <= to; d++) {
+        var a = ab(r.p, d);
+        if (a) st.abs[a] = (st.abs[a] || 0) + 1;
+        else if (rows.some(function (q) { return q.p === r.p && q.c[d]; })) st.work++;
+        else if (isBusy(r.p, d)) st.rest++;
+        else if (onlyBad(r, d)) st.only++;
+      }
+      return st;
+    };
+    var blockers = function (r, d) {
+      return duty.filter(function (o) { return o.p !== r.p; }).map(function (o) {
+        var why, a = ab(o.p, d);
+        if (a) why = 'позначка ' + a;
+        else if (isBusy(o.p, d)) why = (o.c[d] || rows.some(function (q) { return q.p === o.p && q.c[d]; })) ? 'вже працює цього дня' : 'відпочинок після доби ' + (d - 1) + '-го';
+        else if (onlyBad(o, d)) why = 'чергує тільки ' + o.s.days.map(function (x) { return W[x]; }).join(', ');
+        else if (last[o.p] === d - 1) why = 'після доби ' + (d - 1) + '-го';
+        else why = 'до норми лишалось ' + fmt(Math.max(0, o.norm - o.h)) + ' год';
+        return { p: o.p, st: o.st, why: why };
+      });
+    };
+    var give = function (r, d, s, e, kind) {
+      var len = r1(e - s);
+      if (kind !== 'manual' && r.type === 'duty') { var rm = r1(r.norm - r.h); if (len > rm + 0.05) r.over.push({ d: d, len: len, rem: Math.max(0, rm), others: blockers(r, d) }); }
+      else if (kind === 'manual') r.manH = r1(r.manH + len);
+      r.c[d] = fmt(len); r.k[d] = kind; r.tm[d] = [s, e];
+      r.h = r1(r.h + len); r.n = r1(r.n + nightOf(s, e)); mark(r.p, d);
+      if (e >= 24) { mark(r.p, d + 1); last[r.p] = d; }
+    };
+    // carry-over from previous month
+    var carryName = md.carry === 'none' ? '' : (md.carry || autoCarry());
+    if (carryName) {
+      var cr = rows.filter(function (r) { return r.type === 'duty' && r.p === carryName; })[0];
+      var CL = 24 - LASTFULL;
+      if (cr && CL > 0) { cr.c[1] = fmt(CL); cr.k[1] = 'duty'; cr.tm[1] = [-CL, 0]; cr.h = r1(cr.h + CL); cr.carry = CL; cr.n = r1(cr.n + nightOf(-CL, 0)); mark(cr.p, 1); last[cr.p] = 0; }
+      else if (false) { cr.c[1] = '8'; cr.k[1] = 'duty'; cr.tm[1] = [-8, 0]; cr.h = r1(cr.h + 8); cr.carry = 8; cr.n = r1(cr.n + 6); mark(cr.p, 1); last[cr.p] = 0; }
+    }
+    // manual values (fixed first)
+    rows.forEach(function (r) {
+      var mv = md.manual[r.id] || {};
+      Object.keys(mv).forEach(function (k) {
+        var d = +k; if (d < 1 || d > D) return;
+        var v = parseVal(mv[k]); if (!v) return;
+        if (r.type === 'duty') {
+          var lastDay = d === D;
+          var FD = lastDay ? LASTFULL : 24, s = v > XMAX ? Math.max(0, FD - v) : 0, e = v > XMAX ? FD : v;
+          if (v >= 24) { s = 0; e = 24; }
+          give(r, d, s, e, 'manual'); cover[d] = (cover[d] || 0) + (e - s); if (e >= (lastDay ? LASTFULL : 24)) coverEnd[d] = true;
+        } else {
+          r.c[d] = String(mv[k]).trim(); r.k[d] = 'manual'; r.tm[d] = [0, v]; r.h = r1(r.h + v); r.manH = r1(r.manH + v); r.wd++; mark(r.p, d);
+        }
+      });
+    });
+    // fixed-day staff
+    rows.forEach(function (r) {
+      if (r.type !== 'day') return;
+      var base = r.s.base || 8, dh = r1(base * r.st);
+      for (var d = 1; d <= D; d++) if (!off(d) && !away(r.p, d) && !r.c[d]) {
+        r.c[d] = (base === 7.7 || base === 7.2) ? hmm(base * r.st) : fmt(dh); r.k[d] = 'dayv'; r.tm[d] = [0, dh]; r.h = r1(r.h + dh); r.wd++;
+      }
+    });
+    var pick = function (d, ex, gap, minRem) {
+      var best = null, bs = -1e9;
+      duty.forEach(function (r) {
+        if (r === ex || (ex && r.p === ex.p)) return;
+        if (isBusy(r.p, d) || ab(r.p, d) || onlyBad(r, d)) return;
+        if (d - (last[r.p] == null ? -9 : last[r.p]) < gap) return;
+        var rem = r.norm - r.h;
+        if (rem < minRem - 0.05) return;
+        var sc = r.norm ? rem / r.norm : -1;
+        if (prefDays(r) && !prefOK(r, d)) sc -= 2;
+        if (sc > bs) { best = r; bs = sc; }
+      });
+      return best;
+    };
+    var any = function (d, ex, minRem) { return pick(d, ex, GAP_P, minRem) || pick(d, ex, GAP_M, minRem); };
+    duty.forEach(function (r) {
+      if (!prefDays(r)) return;
+      for (var d = 1; DUTY_ON && d <= D; d++) {
+        if (!prefOK(r, d) || cover[d]) continue;
+        var full = d === D ? LASTFULL : 24;
+        if (r.norm - r.h < full - 0.05) break;
+        if (isBusy(r.p, d) || ab(r.p, d) || away(r.p, d + 1)) continue;
+        if (d - (last[r.p] == null ? -9 : last[r.p]) < GAP_P) continue;
+        give(r, d, 0, full, 'duty'); cover[d] = full;
+      }
+    });
+    var uncovered = [];
+    for (var d2 = 1; DUTY_ON && d2 <= D; d2++) {
+      var full = d2 === D ? LASTFULL : 24;
+      var need = r1(full - (cover[d2] || 0));
+      if (need <= 0.05) continue;
+      var b0 = coverEnd[d2] ? 0 : full - need, b9 = b0 + need; // the night part is already taken by hand → fill the day part
+      var a = any(d2, null, need);
+      if (a && !away(a.p, d2 + 1)) { give(a, d2, b0, b9, 'duty'); continue; }
+      var n1 = any(d2, null, 0.5), b1 = n1 ? (any(d2, n1, Math.min(XMAX, Math.max(0.5, need - r1(n1.norm - n1.h)))) || any(d2, n1, 0.5)) : null;
+      if (n1 && b1 && need > 4) {
+        var remN = r1(n1.norm - n1.h), remB = r1(b1.norm - b1.h);
+        if (remB > remN) { var t = n1; n1 = b1; b1 = t; t = remN; remN = remB; remB = t; }
+        var dayPart = Math.max(r1(need - remN), Math.min(XMAX, remB));
+        dayPart = Math.min(dayPart, need - 4);
+        give(n1, d2, b0 + dayPart, b9, 'duty'); give(b1, d2, b0, b0 + dayPart, 'duty'); continue;
+      }
+      var f = null, fb = -1e9; // nobody has enough left: take whoever goes over the norm the least
+      duty.forEach(function (r) {
+        if (isBusy(r.p, d2) || ab(r.p, d2) || onlyBad(r, d2) || away(r.p, d2 + 1)) return;
+        if (d2 - (last[r.p] == null ? -9 : last[r.p]) < GAP_M) return;
+        var sc = r.norm - r.h + (d2 - (last[r.p] == null ? -9 : last[r.p]) >= GAP_P ? 0.01 : 0);
+        if (sc > fb) { f = r; fb = sc; }
+      });
+      if (f) give(f, d2, b0, b9, 'duty'); else uncovered.push(d2);
+    }
+    // second duty doctor to reach norm
+    var extraOn = {};
+    duty.forEach(function (r) {
+      var guard = 0;
+      while (r1(r.norm - r.h) > 0.05 && guard++ < 40) {
+        if (!DUTY_ON || !EXTRA_ON) break;
+        var def = r1(r.norm - r.h), take = Math.min(XMAX, def);
+        var s = 0, e = take, cand = [];
+        for (var d = 1; d < D; d++) {
+          if (isBusy(r.p, d) || ab(r.p, d) || onlyBad(r, d)) continue;
+          if (e >= 24 && (isBusy(r.p, d + 1) || away(r.p, d + 1) || last[r.p] === d - 1)) continue;
+          cand.push(d);
+        }
+        if (!cand.length) { r.short = whyFree(r, 1, D - 1); break; }
+        var pc = cand.filter(function (x) { return prefOK(r, x); });
+        if (pc.length) cand = pc;
+        cand.sort(function (x, z) { return (extraOn[x] || 0) - (extraOn[z] || 0) || x - z; });
+        var low = cand.filter(function (x) { return (extraOn[x] || 0) === (extraOn[cand[0]] || 0); });
+        var day = low[Math.floor(low.length / 2)];
+        give(r, day, s, e, 'extra'); extraOn[day] = (extraOn[day] || 0) + 1;
+      }
+    });
+    // head of department: day hours up to the norm
+    rows.forEach(function (r) {
+      if (r.type !== 'zav') return;
+      var put = function (d, x) { r.c[d] = fmt(x); r.k[d] = 'dayv'; r.tm[d] = [0, x]; r.h = r1(r.h + x); r.wd++; mark(r.p, d); };
+      var days = [];
+      for (var d = 1; d <= D; d++) if (!off(d) && !isBusy(r.p, d) && !ab(r.p, d) && !r.c[d]) days.push(d);
+      var need = Math.min(days.length, Math.ceil(Math.max(0, r.norm - r.h) / 8 - 1e-9)), used = {};
+      for (var i = 0; i < need; i++) { var dd = days[Math.floor(i * days.length / need)]; if (used[dd]) continue; used[dd] = 1; var x = Math.min(8, r1(r.norm - r.h)); if (x > 0.05) put(dd, x); }
+      var guard = 0;
+      while (r1(r.norm - r.h) > 0.05 && guard++ < 40) {
+        var L = r1(r.norm - r.h), x2 = Math.min(8, L), free = null;
+        for (var d3 = 1; d3 <= D && !free; d3++) if (!isBusy(r.p, d3) && !r.c[d3] && !ab(r.p, d3)) free = d3;
+        if (free) { put(free, x2); continue; }
+        var up = null;
+        for (var d4 = 1; d4 <= D && !up; d4++) if (r.c[d4] === '8' && r.k[d4] === 'dayv') up = d4;
+        if (!up) { r.short = whyFree(r, 1, D); break; }
+        var nx = 8 + Math.min(8, L); r.c[up] = fmt(nx); r.tm[up] = [0, nx]; r.h = r1(r.h + nx - 8); r.n = r1(r.n + nightOf(0, nx));
+      }
+    });
+    // a duty doctor over the norm: the head's day shift (08:00–16:00) covers the morning, the doctor starts later
+    var zavs = rows.filter(function (r) { return ZAVCOVER && r.type === 'zav'; }), usedZ = {};
+    duty.forEach(function (r) {
+      zavs.forEach(function (z) {
+        if (z.p === r.p) return;
+        var over = r1(r.h - r.norm);
+        if (over <= 0.05) return;
+        var ds = Object.keys(r.c).map(Number).filter(function (d) { return r.k[d] === 'duty' && r.tm[d] && r.tm[d][0] === 0 && r.tm[d][1] >= 16; });
+        ds.forEach(function (d) {
+          over = r1(r.h - r.norm);
+          if (over <= 0.05) return;
+          var zKey = z.id + ':' + d;
+          if (!(z.k[d] === 'dayv' && z.tm[d] && z.tm[d][0] === 0 && z.tm[d][1] >= 8)) {
+            if (off(d) || z.c[d] || ab(z.p, d) || isBusy(z.p, d)) return;
+            var from = Object.keys(z.c).map(Number).filter(function (x) { return z.k[x] === 'dayv' && z.c[x] === '8' && !usedZ[z.id + ':' + x]; })[0];
+            if (!from) return;
+            z.c[d] = z.c[from]; z.k[d] = 'dayv'; z.tm[d] = z.tm[from];
+            delete z.c[from]; delete z.k[from]; delete z.tm[from]; mark(z.p, d);
+          }
+          if (usedZ[zKey]) return;
+          var x = r1(Math.min(over, 8, z.tm[d][1]));
+          var e = r.tm[d][1];
+          r.tm[d] = [x, e]; r.c[d] = fmt(e - x); r.h = r1(r.h - x); r.zcov = r.zcov || {}; r.zcov[d] = z.p;
+          usedZ[zKey] = true;
+        });
+      });
+    });
+    // why the head could not take the morning of the remaining full duties
+    duty.forEach(function (r) {
+      if (r1(r.h - r.norm) <= 0.15) return;
+      r.noZ = Object.keys(r.c).map(Number).filter(function (d) { return r.k[d] === 'duty' && r.tm[d] && r.tm[d][0] === 0 && r.tm[d][1] >= 16; }).map(function (d) {
+        var why;
+        if (!ZAVCOVER) why = 'правило «завідувач закриває ранок» вимкнено в правилах розрахунку';
+        else if (!zavs.length) why = 'у складі немає завідувача з денними годинами';
+        else if (zavs.every(function (z) { return z.p === r.p; })) why = 'це чергування самої завідувачки — ранок за себе вона не закриває';
+        else {
+          var z = zavs.filter(function (q) { return q.p !== r.p; })[0], a = ab(z.p, d);
+          if (off(d)) why = dow(d) >= 5 ? 'вихідний — завідувачка вдень не працює' : 'святковий день — завідувачка вдень не працює';
+          else if (a) why = 'у завідувачки позначка ' + a;
+          else if (rows.some(function (q) { return q.p === z.p && q.type === 'duty' && q.c[d]; })) why = 'завідувачка того дня сама чергує';
+          else if (z.c[d] && !(z.tm[d] && z.tm[d][1] >= 8)) why = 'у завідувачки того дня неповна зміна';
+          else why = 'у завідувачки не лишилось вільних 8-годинних змін, щоб перенести на цей день';
+        }
+        return { d: d, why: why };
+      });
+    });
+    return { y: y, mo: mo, D: D, dow: dow, off: off, ab: ab, rows: rows, uncovered: uncovered, md: md, carryName: carryName, carryAuto: !md.carry && !!carryName };
+  }
+
+  /* ---------------- render: schedule ---------------- */
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function stLabel(st) { return String(st).replace('.', ','); }
+  function explain(G, r) {
+    var diff = r1(r.h - r.norm), L = [], tip = '';
+    var groups = {}, order = [];
+    Object.keys(r.c).forEach(function (k) {
+      var d = +k, tm = r.tm[d]; if (!tm) return;
+      if (r.carry && d === 1 && tm[0] < 0) return;
+      var g = r.k[d] === 'extra' ? '2-й черговий (вдень)' : r.k[d] === 'manual' ? 'вписано вручну' : r.type === 'duty' ? 'чергування' : 'денні зміни';
+      if (!groups[g]) { groups[g] = {}; order.push(g); }
+      var len = fmt(tm[1] - tm[0]); groups[g][len] = (groups[g][len] || 0) + 1;
+    });
+    var parts = order.map(function (g) {
+      var tot = 0, xs = Object.keys(groups[g]).sort(function (a, b) { return parseFloat(b.replace(',', '.')) - parseFloat(a.replace(',', '.')); }).map(function (len) {
+        var n = groups[g][len]; tot += parseFloat(len.replace(',', '.')) * n; return n > 1 ? len + '×' + n : len;
+      });
+      return g + ': ' + xs.join(' + ') + ' = ' + fmt(tot);
+    });
+    if (r.carry) parts.push('перенесення з попереднього місяця: ' + fmt(r.carry));
+    L.push('Склад годин — ' + (parts.join('; ') || 'немає') + '. Разом ' + fmt(r.h) + ', норма ' + fmt(r.norm) + ' = ' + r.wdN + ' роб. дн. × ' + fmt(H) + ' × ' + stLabel(r.st) + '.');
+    if (diff > 0) {
+      if (r.carry) L.push(fmt(r.carry) + ' год перенесено з останньої доби попереднього місяця (після півночі 1-го числа) — вони зараховуються в цей місяць.');
+      if (r.manH) L.push('Вписано вручну ' + fmt(r.manH) + ' год — програма їх не змінює.');
+      r.over.forEach(function (o) {
+        var others = o.others.map(function (x) { return x.p + (sameName(G, x.p) ? ' (' + stLabel(x.st) + ')' : '') + ' — ' + x.why; }).join('; ');
+        L.push(o.d + '-го треба було закрити ' + fmt(o.len) + ' год, а до норми лишалось ' + fmt(o.rem) + '. Інші не могли: ' + (others || 'інших лікарів немає') + '.');
+      });
+      var nz = (r.noZ || []).filter(function (x) { return !r.zcov || !r.zcov[x.d]; });
+      if (nz.length) {
+        var byWhy = {}, wo = [];
+        nz.forEach(function (x) { if (!byWhy[x.why]) { byWhy[x.why] = []; wo.push(x.why); } byWhy[x.why].push(x.d); });
+        L.push('Ранок (08:00–16:00) не перекладено на завідувачку: ' + wo.map(function (w) { return byWhy[w].join(', ') + '-го — ' + w; }).join('; ') + '.');
+      }
+      if (!r.over.length && !r.carry && !r.manH) L.push('Чергування йдуть цілими добами (24 або 16 год), і норма на них рівно не ділиться.');
+      tip = 'Що можна зробити: у режимі ✎ вписати в одну з діб менше годин (напр. 16 замість 24 — решту доби програма віддасть іншому лікарю), зняти в когось позначку ×, або позначити свято/вихідний правильно.';
+    } else {
+      var sh = r.short;
+      if (sh) {
+        var bits = [];
+        if (sh.work) bits.push(sh.work + ' дн. — вже працює');
+        if (sh.rest) bits.push(sh.rest + ' дн. — відпочинок після доби');
+        Object.keys(sh.abs).forEach(function (a) { bits.push(sh.abs[a] + ' дн. — позначка ' + a); });
+        if (sh.only) bits.push(sh.only + ' дн. — не свій день тижня (режим «тільки»)');
+        L.push('Не лишилось жодного вільного дня, щоб добрати години: ' + bits.join(', ') + (r.type === 'duty' ? '; останній день місяця — лише основне чергування.' : '.'));
+        tip = 'Що можна зробити: зняти частину позначок ×, дозволити інші дні тижня (у «Склад і налаштування»), або вписати години вручну ✎.';
+      } else if (r.manH) {
+        L.push('Вписано вручну ' + fmt(r.manH) + ' год, а вільних днів для добору не знайшлось.');
+      } else L.push('Години не вдалося добрати до норми.');
+    }
+    return { title: r.p + ' (' + (r.type === 'zav' ? 'зав., ' : '') + stLabel(r.st) + '): ' + fmt(r.h) + ' з ' + fmt(r.norm) + ' — ' + (diff > 0 ? 'перебір +' + fmt(diff) : 'недобір ' + fmt(-diff)) + ' год', lines: L, tip: tip };
+  }
+  function sameName(G, p) { return G.rows.filter(function (q) { return q.p === p && q.type === 'duty'; }).length > 1; }
+  var openWhy = {};
+  function renderSchedule() {
+    var G = currentG();
+    if (!G) { renderNoPub(); return null; }
+    var D = G.D, sg = (G.snap && pub[S.ym] && pub[S.ym].signs) || S.signs, P0 = (G.snap && pub[S.ym]) || S;
+    var colgroup = '<colgroup><col style="width:24px"><col style="width:150px"><col style="width:76px"><col style="width:36px">';
+    for (var i = 1; i <= D; i++) colgroup += '<col style="width:30px">';
+    colgroup += '<col style="width:36px"><col style="width:36px"><col style="width:46px"><col style="width:50px"></colgroup>';
+    var h = '';
+    h += '<div class="top"><div class="col"><span>ПОГОДЖЕНО</span><span>' + esc(sg.rProf || 'Голова профкому') + '</span><span>' + esc(sg.hosp) + '</span><span>____________ ' + esc(sg.profkom) + '</span></div>';
+    h += '<div class="title"><span class="t1">' + esc(P0.title || 'ГРАФІК РОБОТИ МЕДПЕРСОНАЛУ') + '</span><span class="t2">на <u>&nbsp;' + MONTHS[G.mo] + '&nbsp;</u> місяць ' + G.y + ' р</span><span class="t1" style="margin-top:6px">' + esc(P0.dept) + '</span></div>';
+    h += '<div class="col"><span>„ЗАТВЕРДЖУЮ”</span><span>' + esc(sg.rDir || 'Медичний директор') + '</span><span>' + esc(sg.hosp) + '</span><span>____________ ' + esc(sg.meddir) + '</span></div></div>';
+    h += '<table class="g">' + colgroup + '<thead><tr><th rowspan="1">№</th><th>Прізвище, ім’я, по батькові</th><th class="vt"><span>посада</span></th><th class="vt"><span>ставка</span></th>';
+    for (var d = 1; d <= D; d++) h += '<th class="day' + (G.off(d) ? ' we' : '') + '" data-day="' + d + '" title="Натисніть, щоб позначити святковим"><b style="font-size:12px">' + d + '</b><br>' + W[G.dow(d)] + '</th>';
+    h += '<th class="vt"><span>робочі дні</span></th><th class="vt"><span>нічні</span></th><th class="vt"><span>години</span></th><th class="vt"><span>підпис</span></th></tr></thead><tbody>';
+    var top = G.rows.filter(function (r) { return r.type !== 'duty'; }), bot = G.rows.filter(function (r) { return r.type === 'duty'; });
+    var line = function (r, no) {
+      var posT = esc(r.s.pos) + (r.s.sumisnyk && r.s.pos !== 'сум.' ? ' <b style="color:#7c2d12">сум.</b>' : (r.s.pos === 'сум.' ? '' : ''));
+      var t = '<tr><td>' + no + '</td><td class="l">' + esc(r.p) + '</td><td class="l sm">' + posT + '</td><td class="sm">' + String(r.st).replace('.', ',') + '</td>';
+      for (var d = 1; d <= D; d++) {
+        var cls = 'c' + (G.off(d) ? ' we' : ''), v = r.c[d] || '', a = G.ab(r.p, d);
+        if (a && !v) { v = a; cls += a === '×' ? ' wish' : ' abs'; } else if (r.k[d]) cls += ' ' + r.k[d];
+        var ttl = (r.zcov && r.zcov[d] && r.tm[d]) ? ' title="Чергування з ' + hm(r.tm[d][0]) + ': до цього денну частину закриває ' + esc(r.zcov[d]) + ' (денна зміна)"' : '';
+        t += '<td class="' + cls + '" data-row="' + r.id + '" data-d="' + d + '"' + ttl + '>' + esc(v) + '</td>';
+      }
+      var bad = !G.snap && r.type !== 'day' && Math.abs(r.h - r.norm) > 0.15;
+      t += '<td class="tot">' + (r.type !== 'duty' ? r.wd : '') + '</td><td class="tot">' + (r.n ? fmt(r.n) : '') + '</td>';
+      t += '<td class="tot' + (bad ? ' mark' : '') + '"' + (bad ? ' data-why="' + r.id + '" title="Норма ' + fmt(r.norm) + '. Натисніть — пояснення"' : ' title="Норма ' + fmt(r.norm) + '"') + '>' + fmt(r.h) + '</td><td></td></tr>';
+      return t;
+    };
+    var empty = function () { var t = '<tr><td></td><td></td><td></td><td></td>'; for (var d = 1; d <= D; d++) t += '<td class="' + (G.off(d) ? 'we' : '') + '"></td>'; return t + '<td></td><td></td><td></td><td></td></tr>'; };
+    top.forEach(function (r, i) { h += line(r, i + 1); });
+    h += empty() + empty();
+    bot.forEach(function (r, i) { h += line(r, i + 1); });
+    h += empty();
+    h += '</tbody></table>';
+    if (P0.note) h += '<div class="note"><b>Примітка:</b> ' + esc(P0.note).replace(/\n/g, '<br>') + '</div>';
+    else h += '<div class="note"><b>Примітка:</b> 7.42 – 08.00–15.42 &nbsp; 04.00 – 08.00–12.00 &nbsp; 08.00 – 08.00–16.00<br>';
+    if (!P0.note) h += '<b>24 год</b> – з 8.00 по 8.00 &nbsp; 16 год – з 16.00 по 8.00 &nbsp; 8 год – з 24.00 по 8.00 або з 8.00 по 16.00 &nbsp; другий черговий — лише денні години з 08.00<br>';
+    if (!P0.note) h += 'З 1 числа <u>16 год</u> – з 08.00 по 24.00 і <u>8 год</u> з 24.00 по 08.00 год 1-го числа наступного місяця. Нічні години — з 22.00 до 06.00.</div>';
+    h += '<div class="signs"><span>' + esc(sg.rNurse || 'Сестра медична старша') + ' ____________ ' + esc(sg.nurse) + '</span><span>' + esc(sg.rHead || 'Зав. відділенням') + ' ____________ ' + esc(sg.head) + '</span></div>';
+    h += '<div class="legend noprint"><span><b style="color:#1d4ed8">24</b> чергування</span><span><b style="color:#15803d;text-decoration:underline">8</b> другий черговий (лише вдень, 08:00–16:00)</span><span><b style="color:#7c2d12;font-style:italic">24</b> вписано вручну</span><span><b>В Н Л</b> відпустка / навчання / лікарняний</span><span><b style="color:#7c2d12">сум.</b> сумісник</span><span><b style="color:#b91c1c">×</b> не ставити</span><span style="background:#fef9c3;padding:0 6px">години ≠ норма (наведіть, щоб побачити норму)</span></div>';
+    document.getElementById('sheet').innerHTML = h;
+    var w = '';
+    if (G.uncovered.length) w = 'Не вдалося закрити чергуванням: ' + G.uncovered.join(', ') + ' ' + MONTHS_G[G.mo] + ' — впишіть вручну.';
+    var badRows = G.rows.filter(function (r) { return !G.snap && r.type !== 'day' && Math.abs(r.h - r.norm) > 0.15; });
+    if (badRows.length) w += (w ? ' ' : '') + 'Не в нормі: ' + badRows.map(function (r) { return r.p + ' (' + String(r.st).replace('.', ',') + '): ' + fmt(r.h) + ' з ' + fmt(r.norm); }).join('; ') + '.';
+    document.getElementById('warn').textContent = w;
+    var exs = G.md.extraSt || {}, exn = Object.keys(exs).filter(function (n) { return exs[n] > 0; });
+    document.getElementById('extraInfo').innerHTML = exn.length ? 'Заміщення цього місяця: <b>' + exn.map(function (n) { return esc(n) + ' +' + stLabel(exs[n]); }).join(', ') + '</b> <button type="button" class="btn small danger" id="dropExtra">Прибрати</button>' : '';
+    var wh = badRows.map(function (r) {
+      var e = explain(G, r);
+      return '<details class="why" id="why-' + r.id + '"' + (openWhy[r.id] ? ' open' : '') + '><summary>' + esc(e.title) + '</summary><ul>' + e.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' + (e.tip ? '<div class="hint">' + esc(e.tip) + '</div>' : '') + '</details>';
+    }).join('');
+    document.getElementById('why').innerHTML = wh ? '<div class="hint">Чому не в нормі — натисніть на рядок, щоб розгорнути:</div>' + wh : '';
+    // carry select
+    var names = uniqueDutyNames();
+    var cs = document.getElementById('carry');
+    cs.innerHTML = '<option value="">Автоматично — з графіка попереднього місяця' + (G.carryAuto ? ' (' + esc(G.carryName) + ')' : G.md.carry ? '' : ' (немає даних)') + '</option><option value="none"' + (G.md.carry === 'none' ? ' selected' : '') + '>— ніхто / не враховувати —</option>' + names.map(function (n) { return '<option' + (G.md.carry === n ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+    renderViews(G);
+    return G;
+  }
+  function renderViews(G) {
+    document.getElementById('views').innerHTML = (viewer() ? [['person', 'Моє'], ['days', 'По днях'], ['sheet', 'Бланк']] : [['days', 'По днях'], ['person', 'По людях'], ['sheet', 'Бланк']]).map(function (v) { return '<button type="button" class="btn small" data-view="' + v[0] + '" aria-pressed="' + (view === v[0]) + '">' + v[1] + '</button>'; }).join('');
+    document.getElementById('sheetCard').hidden = view !== 'sheet';
+    var dv = document.getElementById('daysView'), pv = document.getElementById('personView');
+    dv.hidden = view !== 'days'; pv.hidden = view !== 'person';
+    if (view === 'days') dv.innerHTML = daysHtml(G);
+    if (view === 'person') pv.innerHTML = personHtml(G);
+  }
+  function daysHtml(G) {
+    var h = '', now = new Date(), isCur = now.getFullYear() === G.y && now.getMonth() === G.mo;
+    for (var d = 1; d <= G.D; d++) {
+      var items = [], absent = [], seen = {};
+      G.rows.forEach(function (r) { if (r.type !== 'day' && r.c[d] && r.tm[d]) items.push({ r: r, s: r.tm[d][0], e: r.tm[d][1] }); });
+      G.rows.forEach(function (r) { if (r.type !== 'duty' || seen[r.p]) return; seen[r.p] = 1; var a = G.ab(r.p, d); if (a) absent.push(r.p + ' (' + a + ')'); });
+      items.sort(function (a, b) { return a.s - b.s; });
+      var unc = G.uncovered.indexOf(d) >= 0;
+      h += '<div class="dayc' + (G.off(d) ? ' we' : '') + (unc ? ' unc' : '') + (isCur && now.getDate() === d ? ' today' : '') + '"><div class="dh"><span><b>' + d + ' ' + MONTHS_G[G.mo] + '</b>, ' + WFULL[G.dow(d)] + (G.md.hol[d] ? ' · святковий' : '') + '</span><button type="button" class="btn small ed" data-hol="' + d + '">' + (G.md.hol[d] ? 'Не свято' : 'Свято') + '</button></div>';
+      h += items.map(function (it) {
+        var r = it.r, lbl = r.type === 'zav' ? 'денна (зав.)' : r.k[d] === 'extra' ? '2-й черговий' : r.k[d] === 'manual' ? 'вручну' : 'чергування';
+        return '<div class="it"><span>' + esc(r.p) + ' <span class="hint">' + lbl + '</span></span><span style="white-space:nowrap"><b class="' + (r.k[d] || '') + '">' + esc(r.c[d]) + '</b> · ' + hm(it.s) + '–' + hm(it.e) + '</span></div>';
+      }).join('');
+      if (unc) h += '<div class="warn">Доба не закрита — впишіть години вручну</div>';
+      if (absent.length) h += '<div class="hint">Відсутні: ' + esc(absent.join(', ')) + '</div>';
+      h += '</div>';
+    }
+    return '<div class="hint ed" style="margin-bottom:8px">Хто працює кожного дня. Позначки В/Н/Л/× і ручні години зручно ставити у вигляді «По людях».</div>' + h;
+  }
+  function personHtml(G) {
+    if (G.snap) return minePersonHtml(G);
+    var rows = G.rows;
+    if (!rows.some(function (x) { return x.id === personSel; })) { var me = rows.filter(function (x) { return x.p === meName; })[0]; personSel = (me || rows[0] || {}).id; }
+    var r = rows.filter(function (x) { return x.id === personSel; })[0]; if (!r) return '';
+    var h = '<label class="f">Працівник <select id="personSel">' + rows.map(function (x) { return '<option value="' + x.id + '"' + (x.id === personSel ? ' selected' : '') + '>' + esc(x.p + ' — ' + x.s.pos + ', ' + stLabel(x.st)) + '</option>'; }).join('') + '</select></label>';
+    var bad = r.type !== 'day' && Math.abs(r.h - r.norm) > 0.15;
+    var ac = absText(absCount(r.p));
+    h += '<div style="margin:10px 0;font-weight:600' + (bad ? ';color:#92400e' : '') + '">' + fmt(r.h) + ' год з норми ' + fmt(r.norm) + (r.n ? ' · нічних ' + fmt(r.n) : '') + (bad ? ' — не в нормі' : ' — у нормі') + '</div>' + (ac ? '<div class="hint" style="margin:-4px 0 10px">Відсутність: ' + esc(ac) + '</div>' : '');
+    if (bad) { var ex = explain(G, r); h += '<div class="why"><ul>' + ex.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' + (ex.tip ? '<div class="hint">' + esc(ex.tip) + '</div>' : '') + '</div><div style="height:10px"></div>'; }
+    h += '<div class="cal7">' + W.map(function (w) { return '<div class="wh">' + w + '</div>'; }).join('');
+    for (var i = 0; i < G.dow(1); i++) h += '<div></div>';
+    for (var d = 1; d <= G.D; d++) {
+      var v = r.c[d] || '', a = G.ab(r.p, d), vc = '';
+      if (a && !v) { v = a; vc = a === '×' ? 'wish' : 'abs'; } else if (r.k[d]) vc = r.k[d];
+      h += '<button type="button" class="cd' + (G.off(d) ? ' we' : '') + '" data-row="' + r.id + '" data-d="' + d + '" aria-label="' + d + ' ' + MONTHS_G[G.mo] + (v ? ': ' + esc(v) : '') + '"><span class="n">' + d + '</span><span class="v ' + vc + '">' + esc(v) + '</span></button>';
+    }
+    h += '</div><div class="hint" style="margin-top:8px">Оберіть угорі В, Н, Л, ×, ✎ або «Стерти» — і натискайте дні в календарі.</div>';
+    return h;
+  }
+  function uniqueDutyNames() { var seen = {}, out = []; S.staff.forEach(function (s) { var n = s.name.trim(); if (s.type === 'duty' && n && !seen[n]) { seen[n] = 1; out.push(n); } }); return out; }
+
+  function renderModes() {
+    var list = [['В', 'В — відпустка'], ['Н', 'Н — навчання'], ['Л', 'Л — лікарняний'], ['×', '× — не ставити'], ['✎', '✎ Вписати години'], ['', 'Стерти']];
+    var h = list.map(function (m) { return '<button type="button" class="btn" data-mode="' + m[0] + '" aria-pressed="' + (mode === m[0]) + '">' + m[1] + '</button>'; }).join('');
+    h += '<label class="f" style="flex-direction:row;align-items:center;gap:6px;' + (mode === '✎' ? '' : 'opacity:.5') + '">години: <input id="manualVal" style="width:70px" value="' + esc(manualVal) + '" ' + (mode === '✎' ? '' : 'disabled') + '></label>';
+    document.getElementById('modes').innerHTML = h;
+  }
+
+  /* ---------------- staff editor ---------------- */
+  function renderStaff() {
+    var tb = document.getElementById('staffBody'), h = '';
+    var opt = function (v, cur, label) { return '<option value="' + v + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + label + '</option>'; };
+    S.staff.forEach(function (s, i) {
+      h += '<tr data-i="' + i + '"><td data-label="ПІБ"><input class="name" data-k="name" value="' + esc(s.name) + '" aria-label="ПІБ"></td>';
+      h += '<td data-label="Посада"><input data-k="pos" value="' + esc(s.pos) + '" style="width:130px" aria-label="Посада">' + (s.type !== 'zav' ? '<label title="Позаштатний / внутрішній сумісник — у бланку позначка «сум.»" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-top:4px;color:var(--muted)"><input type="checkbox" data-k="sumisnyk"' + (s.sumisnyk ? ' checked' : '') + ' style="width:15px;height:15px"> сумісник</label>' : '') + '</td>';
+      h += '<td data-label="Ставка"><select data-k="st" aria-label="Ставка">' + opt(0.25, s.st, '0,25') + opt(0.5, s.st, '0,5') + opt(0.75, s.st, '0,75') + opt(1, s.st, '1,0') + '</select></td>';
+      h += '<td data-label="Як рахувати"><select data-k="type" aria-label="Як рахувати">' + opt('duty', s.type, 'Чергування (нижня частина)') + opt('day', s.type, 'Денні щодня (верхня)') + opt('zav', s.type, 'Денні до норми (зав.)') + '</select></td>';
+      h += (s.type === 'day' ? '<td data-label="Денні год на 1,0 ставки">' : '<td>') + (s.type === 'day' ? '<select data-k="base" aria-label="Денні години">' + opt(6, s.base, '6') + opt(7.2, s.base, '7.12 (36 год/тиж)') + opt(7.7, s.base, '7.42 (08.00–15.42)') + opt(8, s.base, '8 (08.00–16.00)') + '</select>' : '<span class="hint">—</span>') + '</td>';
+      if (s.type === 'duty') {
+        var ds = s.days || [];
+        h += '<td data-label="Дні чергувань" style="white-space:nowrap">' + W.map(function (w, wi) {
+          var on = ds.indexOf(wi) >= 0;
+          return '<button type="button" class="btn small" data-wd="' + wi + '" aria-pressed="' + on + '" style="padding:0 6px;min-width:34px;' + (on ? 'background:#1d4ed8;color:#fff;border-color:#1d4ed8' : '') + '">' + w + '</button>';
+        }).join(' ') + (ds.length ? ' <select data-k="dmode" aria-label="Режим днів">' + opt('prefer', s.dmode || 'prefer', 'переважно') + opt('only', s.dmode, 'тільки') + '</select>' : ' <span class="hint">будь-які</span>') + '</td>';
+      } else h += '<td><span class="hint">—</span></td>';
+      h += '<td style="white-space:nowrap"><button type="button" class="btn small" data-act="up" aria-label="Вище">↑</button> <button type="button" class="btn small" data-act="down" aria-label="Нижче">↓</button> <button type="button" class="btn small danger" data-act="del">Видалити</button></td></tr>';
+    });
+    tb.innerHTML = h;
+    var sg = S.signs, fields = [['hosp', 'Заклад'], ['profkom', 'Голова профкому'], ['meddir', 'Медичний директор'], ['nurse', 'Сестра медична старша'], ['head', 'Зав. відділенням']];
+    var sh = '<label class="f">Відділення <input data-sign="dept" value="' + esc(S.dept) + '" style="width:240px"></label>';
+    fields.forEach(function (f) { sh += '<label class="f">' + f[1] + ' <input data-sign="' + f[0] + '" value="' + esc(sg[f[0]]) + '" style="width:240px"></label>'; });
+    sh = '<label class="f">Назва бланка <input data-sign="title" value="' + esc(S.title || 'ГРАФІК РОБОТИ МЕДПЕРСОНАЛУ') + '" style="width:240px"></label>' + sh;
+    [['rProf', 'Посада: хто погоджує', 'Голова профкому'], ['rDir', 'Посада: хто затверджує', 'Медичний директор'], ['rNurse', 'Посада: підпис унизу ліворуч', 'Сестра медична старша'], ['rHead', 'Посада: підпис унизу праворуч', 'Зав. відділенням']].forEach(function (f) {
+      sh += '<label class="f">' + f[1] + ' <input data-sign="' + f[0] + '" value="' + esc(sg[f[0]] || f[2]) + '" style="width:240px"></label>';
+    });
+    sh += '<label class="f" style="flex-basis:100%">Примітка під таблицею (залиште порожньою — буде стандартна) <textarea data-sign="note" rows="3" style="width:100%;max-width:760px;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;font:14px inherit;font-family:inherit">' + esc(S.note || '') + '</textarea></label>';
+    document.getElementById('signs').innerHTML = sh;
+    var c = applyCfg(), hrs = [];
+    for (var hh = 0; hh < 24; hh++) hrs.push([hh, (hh < 10 ? '0' : '') + hh + ':00']);
+    var num = function (k, label) { return '<label class="f">' + label + ' <input type="number" step="0.5" data-cfg="' + k + '" value="' + c[k] + '" style="width:120px"></label>'; };
+    var sel = function (k, label, list) { return '<label class="f">' + label + ' <select data-cfg="' + k + '">' + list.map(function (o) { return opt(o[0], c[k], o[1]); }).join('') + '</select></label>'; };
+    var chk = function (k, label) { return '<label style="display:flex;align-items:center;gap:8px;font-size:14px;flex-basis:100%"><input type="checkbox" data-cfg="' + k + '"' + (c[k] ? ' checked' : '') + ' style="height:18px;width:18px"> ' + label + '</label>'; };
+    var rest = [[1, '1 доба (через добу)'], [2, '2 доби'], [3, '3 доби']];
+    document.getElementById('rules').innerHTML =
+      num('week', 'Норма годин на тиждень') +
+      sel('maxSt', 'Максимум ставок на людину', [[1, '1,0'], [1.25, '1,25'], [1.5, '1,5'], [1.75, '1,75'], [2, '2,0']]) +
+      chk('duty', 'У відділенні є цілодобові чергування (кожну добу має хтось чергувати)') +
+      sel('start', 'Початок доби чергування', hrs) +
+      sel('nightFrom', 'Нічні години з', hrs) + sel('nightTo', 'до', hrs) +
+      sel('restPref', 'Бажаний відпочинок після доби', rest) + sel('restMin', 'Мінімальний відпочинок', rest) +
+      num('dayPart', 'Денна частина доби, год') +
+      chk('splitLast', 'В останній день місяця години після півночі переходять на наступний місяць') +
+      chk('extra', 'Другий черговий удень — щоб добрати години до норми') +
+      chk('zavCover', 'Завідувач закриває ранок, коли в лікаря перебір') +
+      '<button type="button" class="btn small" id="rulesReset">Повернути стандартні правила</button>';
+    renderAccess();
+  }
+
+  /* ---------------- my duties / ics ---------------- */
+  function pieces(G, who) {
+    var out = [];
+    G.rows.forEach(function (r) {
+      if (r.p !== who) return;
+      Object.keys(r.c).forEach(function (k) {
+        var d = +k, tm = r.tm[d]; if (!tm) return;
+        var kind = r.k[d], label = r.type === 'duty' ? (kind === 'extra' ? 'Чергування (2-й черговий)' : 'Чергування') : 'Денна зміна';
+        out.push({ d: d, s: tm[0], e: tm[1], len: r1(tm[1] - tm[0]), label: label });
+      });
+    });
+    return out.sort(function (a, b) { return a.d - b.d || a.s - b.s; });
+  }
+  function renderCal() {
+    var G = currentG(), sel = document.getElementById('calWho');
+    if (!G) { document.getElementById('calSum').textContent = 'Графік на цей місяць ще не опубліковано.'; document.getElementById('calList').innerHTML = ''; return; }
+    var names = []; G.rows.forEach(function (r) { if (r.p && names.indexOf(r.p) < 0) names.push(r.p); });
+    var cur = (names.indexOf(sel.value) >= 0 && sel.value) || (names.indexOf(meName) >= 0 ? meName : names[0]);
+    sel.innerHTML = names.map(function (n) { return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+    var ps = pieces(G, cur), tot = 0, nights = 0, norm = 0;
+    G.rows.forEach(function (r) { if (r.p === cur) { tot += r.h; nights += r.n; norm += r.norm; } });
+    document.getElementById('calSum').textContent = MONTHS[G.mo] + ' ' + G.y + ': ' + fmt(tot) + ' год з ' + fmt(norm) + ' · нічних ' + fmt(nights) + ' · записів ' + ps.length;
+    document.getElementById('calList').innerHTML = ps.map(function (p) {
+      return '<div><span><b>' + p.d + ' ' + MONTHS_G[G.mo] + '</b>, ' + WFULL[G.dow(p.d)] + '</span><span>' + p.label + ' · ' + fmt(p.len) + ' год · ' + hm(p.s) + '–' + hm(p.e) + '</span></div>';
+    }).join('') || '<div><span class="hint">Немає записів у цьому місяці</span></div>';
+  }
+  function isoAt(y, mo, d, off) {
+    var dt = new Date(y, mo, d, 8, 0, 0); dt.setMinutes(dt.getMinutes() + Math.round(off * 60));
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return { iso: dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate()) + 'T' + p(dt.getHours()) + ':' + p(dt.getMinutes()) + ':00',
+      date: p(dt.getMonth() + 1) + '/' + p(dt.getDate()) + '/' + dt.getFullYear(), time: p(dt.getHours()) + ':' + p(dt.getMinutes()) };
+  }
+  function downloadCsv() {
+    var G = currentG(); if (!G) return;
+    var who = document.getElementById('calWho').value, ps = pieces(G, who);
+    var q = function (t) { return '"' + String(t).replace(/"/g, '""') + '"'; };
+    var L = ['Subject,Start Date,Start Time,End Date,End Time,Description'];
+    ps.forEach(function (p) {
+      var a = isoAt(G.y, G.mo, p.d, p.s), b = isoAt(G.y, G.mo, p.d, p.e);
+      L.push([q(p.label + ' ' + fmt(p.len) + ' год'), a.date, a.time, b.date, b.time, q(S.dept + ', ' + S.signs.hosp)].join(','));
+    });
+    saveFile('cherguvannya-' + S.ym + '.csv', '﻿' + L.join('\r\n'));
+  }
+  function downloadIcs() {
+    var G = currentG(); if (!G) return;
+    var who = document.getElementById('calWho').value, ps = pieces(G, who);
+    if (!ps.length) { toast('Немає записів для календаря'); return; }
+    var p2 = function (n) { return String(n).padStart(2, '0'); };
+    var stamp = function (y, mo, d, off) { var a = isoAt(y, mo, d, off).iso.replace(/[-:]/g, ''); return a; };
+    var escI = function (t) { return String(t).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); };
+    var now = new Date(), dt = now.getUTCFullYear() + p2(now.getUTCMonth() + 1) + p2(now.getUTCDate()) + 'T' + p2(now.getUTCHours()) + p2(now.getUTCMinutes()) + '00Z';
+    var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//grafik-cherguvan//UA', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+      'BEGIN:VTIMEZONE', 'TZID:Europe/Kyiv',
+      'BEGIN:STANDARD', 'DTSTART:19701025T040000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'TZOFFSETFROM:+0300', 'TZOFFSETTO:+0200', 'END:STANDARD',
+      'BEGIN:DAYLIGHT', 'DTSTART:19700329T030000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0300', 'END:DAYLIGHT',
+      'END:VTIMEZONE'];
+    ps.forEach(function (p) {
+      var uidv = 'grafik-' + S.ym + '-' + p.d + '-' + Math.round(p.s * 60) + '-' + who.replace(/[^\wА-Яа-яІіЇїЄєҐґ]/g, '') + '@grafik';
+      L.push('BEGIN:VEVENT', 'UID:' + uidv, 'DTSTAMP:' + dt,
+        'DTSTART;TZID=Europe/Kyiv:' + stamp(G.y, G.mo, p.d, p.s), 'DTEND;TZID=Europe/Kyiv:' + stamp(G.y, G.mo, p.d, p.e),
+        'SUMMARY:' + escI(p.label + ' ' + fmt(p.len) + ' год'), 'DESCRIPTION:' + escI(S.dept + (S.signs.hosp ? ', ' + S.signs.hosp : '')), 'END:VEVENT');
+    });
+    L.push('END:VCALENDAR');
+    saveFile('cherguvannya-' + S.ym + '.ics', L.join('\r\n') + '\r\n', 'text/calendar');
+  }
+  // desktop/Android shells may provide window.grafikHost.saveFile(name, text) — otherwise a normal browser download
+  function saveFile(name, data, type) {
+    try {
+      if (window.grafikHost && window.grafikHost.saveFile) {
+        Promise.resolve(window.grafikHost.saveFile(name, data, type || '')).then(function (ok) { if (ok !== false) toast('Файл збережено: ' + name); }, function () { toast('Не вдалося зберегти файл'); });
+        return;
+      }
+      var blob = new Blob([data], { type: (type || 'application/octet-stream') + ';charset=utf-8' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast('Файл збережено: ' + name);
+    } catch (e) { toast('Не вдалося зберегти файл'); }
+  }
+  function printFile() {
+    var G = renderSchedule(); if (!G) return;
+    // Android prints the WebView asynchronously → switch to the form view and keep it
+    if (window.grafikHost && grafikHost.print) { if (view !== 'sheet') { view = 'sheet'; renderSchedule(); } setTimeout(function () { grafikHost.print(); }, 150); return; }
+    var sc = document.getElementById('sheetCard'), was = sc.hidden; sc.hidden = false;
+    setTimeout(function () { window.print(); sc.hidden = was; }, 50);
+  }
+  /* ---------------- wiring ---------------- */
+  function renderAll() {
+    document.body.classList.toggle('loading', role === null);
+    document.body.classList.toggle('viewer', viewer());
+    document.body.classList.toggle('owner', isOwner && !viewer());
+    document.body.classList.toggle('nosched', !viewer() && !rights.sched);
+    document.body.classList.toggle('nostaff', !viewer() && !rights.staff);
+    document.body.classList.toggle('nopub', !viewer() && !rights.pub);
+    if (role === null) return;
+    document.body.classList.toggle('admin', isOwner);
+    if (((viewer() || !rights.staff) && activeTab === 'staff') || ((viewer() || !isOwner) && activeTab === 'adm')) {
+      activeTab = 'sched';
+      document.querySelectorAll('.tabs button').forEach(function (x) { x.setAttribute('aria-selected', String(x.dataset.tab === activeTab)); });
+      ['sched', 'staff', 'cal', 'adm'].forEach(function (t) { document.getElementById('tab-' + t).hidden = t !== activeTab; });
+    }
+    renderModes(); renderSchedule(); if (activeTab === 'staff') renderStaff(); if (activeTab === 'cal') renderCal(); if (activeTab === 'adm' && admDirty) renderAdmin();
+    renderPubInfo(); renderRoleBtn();
+  }
+  document.getElementById('month').value = S.ym;
+  document.getElementById('month').addEventListener('change', function (e) { if (e.target.value) { S.ym = e.target.value; save(); renderAll(); } });
+  document.querySelectorAll('.tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      activeTab = b.dataset.tab;
+      document.querySelectorAll('.tabs button').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); });
+      ['sched', 'staff', 'cal', 'adm'].forEach(function (t) { document.getElementById('tab-' + t).hidden = t !== activeTab; });
+      renderAll();
+    });
+  });
+  document.getElementById('printBtn').addEventListener('click', function () {
+    if (activeTab !== 'sched') document.querySelector('.tabs button[data-tab="sched"]').click();
+    setTimeout(printFile, 30);
+  });
+  document.getElementById('modes').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-mode]'); if (!b) return; mode = b.dataset.mode; renderModes();
+  });
+  document.getElementById('modes').addEventListener('input', function (e) { if (e.target.id === 'manualVal') manualVal = e.target.value; });
+  document.getElementById('why').addEventListener('toggle', function (e) {
+    var el = e.target; if (!el.id || el.id.indexOf('why-') !== 0) return;
+    var id = el.id.slice(4); if (el.open) openWhy[id] = 1; else delete openWhy[id];
+  }, true);
+  document.getElementById('sheet').addEventListener('click', function (e) {
+    var wc = e.target.closest('td[data-why]');
+    if (wc) { var we = document.getElementById('why-' + wc.dataset.why); if (we) { we.open = true; openWhy[wc.dataset.why] = 1; we.scrollIntoView({ behavior: 'smooth', block: 'center' }); } return; }
+    var th = e.target.closest('th[data-day]');
+    var md = M();
+    if (th) { if (noSched()) return; var dd = +th.dataset.day; if (md.hol[dd]) delete md.hol[dd]; else md.hol[dd] = true; save(); renderAll(); return; }
+    var td = e.target.closest('td[data-row]'); if (!td) return;
+    applyCell(td.dataset.row, +td.dataset.d);
+  });
+  function applyCell(id, d) {
+    if (noSched()) return;
+    if (viewer()) return;
+    var md = M(), staff = staffFor(md).filter(function (s) { return s.id === id; })[0]; if (!staff) return;
+    var p = staff.name.trim();
+    if (mode === '✎') {
+      md.manual[id] = md.manual[id] || {};
+      if (manualVal.trim() === '' || md.manual[id][d] === manualVal.trim()) delete md.manual[id][d]; else md.manual[id][d] = manualVal.trim();
+    } else if (mode === '') {
+      if (md.abs[p]) delete md.abs[p][d];
+      if (md.manual[id]) delete md.manual[id][d];
+    } else {
+      md.abs[p] = md.abs[p] || {};
+      if (md.abs[p][d] === mode) delete md.abs[p][d]; else md.abs[p][d] = mode;
+    }
+    save(); renderAll();
+  }
+  document.getElementById('autoSt').addEventListener('click', autoStavky);
+  document.getElementById('extraInfo').addEventListener('click', function (e) {
+    if (e.target.id !== 'dropExtra') return;
+    ask('Прибрати тимчасові ставки заміщення цього місяця?', 'Прибрати').then(function (ok) { if (ok) { M().extraSt = {}; save(); renderAll(); } });
+  });
+  document.getElementById('views').addEventListener('click', function (e) { var b = e.target.closest('button[data-view]'); if (!b) return; view = b.dataset.view; renderSchedule(); });
+  document.getElementById('daysView').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-hol]'); if (!b || noSched()) return;
+    var md = M(), d = +b.dataset.hol; if (md.hol[d]) delete md.hol[d]; else md.hol[d] = true; save(); renderAll();
+  });
+  document.getElementById('personView').addEventListener('click', function (e) { var b = e.target.closest('button[data-row]'); if (b) applyCell(b.dataset.row, +b.dataset.d); });
+  document.getElementById('personView').addEventListener('change', function (e) {
+    if (e.target.id === 'personSel') { personSel = e.target.value; renderSchedule(); }
+    if (e.target.id === 'meSel') { meName = e.target.value; try { localStorage.setItem('grafik-me', meName); } catch (er) {} renderSchedule(); }
+  });
+  document.getElementById('pubBtn').addEventListener('click', publish);
+  document.getElementById('rules').addEventListener('change', function (e) {
+    var k = e.target.dataset.cfg; if (!k) return;
+    var c = applyCfg(), v = e.target.type === 'checkbox' ? e.target.checked : parseFloat(e.target.value);
+    if (k === 'week' && !(v >= 10 && v <= 60)) { toast('Тижнева норма — від 10 до 60 годин'); renderStaff(); return; }
+    if (k === 'dayPart' && !(v >= 1 && v <= 12)) { toast('Денна частина доби — від 1 до 12 годин'); renderStaff(); return; }
+    c[k] = v;
+    if (k === 'restMin' && c.restPref < v) c.restPref = v;
+    if (k === 'restPref' && c.restMin > v) c.restMin = v;
+    save(); renderStaff(); renderSchedule();
+  });
+  document.getElementById('rules').addEventListener('click', function (e) {
+    if (e.target.id !== 'rulesReset') return;
+    ask('Повернути стандартні правила розрахунку?', 'Повернути').then(function (ok) { if (!ok) return; S.cfg = {}; save(); renderStaff(); renderSchedule(); });
+  });
+  document.getElementById('newDept').addEventListener('click', function () {
+    ask('Почати нове відділення? Склад, підписи, позначки і всі місяці буде очищено. Правила розрахунку залишаться. Спершу збережіть файл копії, якщо ці дані ще потрібні.', 'Очистити').then(function (ok) {
+      if (!ok) return;
+      S.staff = []; S.months = {}; S.synced = {}; S.dept = 'НАЗВА ВІДДІЛЕННЯ'; S.note = '';
+      S.signs = { profkom: '', meddir: '', nurse: '', head: '', hosp: '' };
+      save(); renderAll(); renderStaff(); toast('Склад очищено — додайте працівників');
+    });
+  });
+  document.getElementById('roleBtn').addEventListener('click', function () { asViewer = !asViewer; view = asViewer ? 'person' : 'days'; renderAll(); });
+  document.getElementById('carry').addEventListener('change', function (e) { M().carry = e.target.value; save(); renderAll(); });
+  document.getElementById('clearMarks').addEventListener('click', function () {
+    ask('Очистити всі позначки, свята і ручні правки цього місяця?', 'Очистити').then(function (ok) {
+      if (!ok) return; S.months[S.ym] = { abs: {}, hol: {}, manual: {}, carry: M().carry }; save(); renderAll();
+    });
+  });
+  var staffBody = document.getElementById('staffBody');
+  staffBody.addEventListener('change', function (e) {
+    var tr = e.target.closest('tr[data-i]'); if (!tr) return;
+    var s = S.staff[+tr.dataset.i], k = e.target.dataset.k; if (!k) return;
+    var v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    if (k === 'st' || k === 'base') v = parseFloat(v);
+    var oldName = s.name;
+    s[k] = v;
+    if (k === 'type' && v === 'day' && !s.base) s.base = 8;
+    if (k === 'name') { Object.keys(S.months).forEach(function (ym) { var a = S.months[ym].abs; if (a[oldName.trim()] && !S.staff.some(function (x) { return x !== s && x.name.trim() === oldName.trim(); })) { a[v.trim()] = a[oldName.trim()]; delete a[oldName.trim()]; } }); }
+    save(); renderStaff(); renderSchedule();
+  });
+  staffBody.addEventListener('click', function (e) {
+    var wb = e.target.closest('button[data-wd]');
+    if (wb) {
+      var si = S.staff[+wb.closest('tr').dataset.i], wd = +wb.dataset.wd;
+      si.days = si.days || [];
+      var at = si.days.indexOf(wd);
+      if (at >= 0) si.days.splice(at, 1); else { si.days.push(wd); si.days.sort(); }
+      if (!si.dmode) si.dmode = 'prefer';
+      save(); renderStaff(); renderSchedule(); return;
+    }
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var i = +b.closest('tr').dataset.i, act = b.dataset.act;
+    if (act === 'del') {
+      ask('Видалити «' + S.staff[i].name + ' (' + S.staff[i].pos + ')» зі складу?', 'Видалити').then(function (ok) { if (!ok) return; S.staff.splice(i, 1); save(); renderStaff(); renderSchedule(); });
+      return;
+    }
+    if (act === 'up' && i > 0) { var t = S.staff[i - 1]; S.staff[i - 1] = S.staff[i]; S.staff[i] = t; }
+    if (act === 'down' && i < S.staff.length - 1) { var t2 = S.staff[i + 1]; S.staff[i + 1] = S.staff[i]; S.staff[i] = t2; }
+    save(); renderStaff(); renderSchedule();
+  });
+  document.getElementById('addDuty').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий лікар', pos: 'лікар', st: 1, type: 'duty' }); save(); renderStaff(); });
+  document.getElementById('addDay').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий працівник', pos: '', st: 1, type: 'day', base: 8 }); save(); renderStaff(); });
+  document.getElementById('signs').addEventListener('change', function (e) {
+    var k = e.target.dataset.sign; if (!k) return;
+    if (k === 'dept' || k === 'title' || k === 'note') S[k] = e.target.value; else S.signs[k] = e.target.value;
+    save(); renderSchedule();
+  });
+  document.getElementById('exportJson').addEventListener('click', function () {
+    saveFile('grafik-kopiya.json', JSON.stringify(S, null, 1));
+  });
+  document.getElementById('importJson').addEventListener('change', function (e) {
+    var f = e.target.files[0]; if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var x; try { x = JSON.parse(rd.result); if (!x || !Array.isArray(x.staff)) throw 0; } catch (er) { toast('Цей файл не підходить'); return; }
+      ask('Відновити з файлу «' + f.name + '»?\n\nСклад: ' + x.staff.length + ' рядків, місяців з позначками: ' + Object.keys(x.months || {}).length + '.\nПоточний робочий графік на сервері буде замінено для всіх укладачів. Опубліковані місяці не зміняться.', 'Відновити').then(function (ok) {
+        if (!ok) return;
+        // drop what belonged to the old claude.ai version (its publications and calendar ids)
+        Object.keys(x.months || {}).forEach(function (ym) { delete x.months[ym].pubAt; delete x.months[ym].pubSig; });
+        delete x.synced;
+        // imported data was made when «завідувач закриває ранок» was ON by default → preserve it, so the dept keeps its behaviour
+        if (!x.cfg || x.cfg.zavCover === undefined) { x.cfg = x.cfg || {}; x.cfg.zavCover = true; }
+        S = x; save(); afterLoad(); renderStaff(); toast('Відновлено з файлу');
+      });
+    };
+    rd.readAsText(f);
+    e.target.value = '';
+  });
+  document.getElementById('resetAll').addEventListener('click', function () {
+    ask('Очистити ВСЕ: склад, підписи, правила і всі місяці? Це зміниться для всіх укладачів. Спершу збережіть файл копії.', 'Очистити все').then(function (ok) {
+      if (!ok) return; S = defaults(); save(); document.getElementById('month').value = S.ym; renderAll(); renderStaff();
+    });
+  });
+  document.getElementById('calWho').addEventListener('change', renderCal);
+  document.getElementById('gBtn').addEventListener('click', downloadIcs);
+  document.getElementById('csvBtn').addEventListener('click', downloadCsv);
+
+  document.getElementById('logoutBtn').addEventListener('click', function () {
+    var go = function () { online = false; dirty = false; SB.signOut(); try { localStorage.removeItem(KEY); localStorage.removeItem(PUBKEY); } catch (e) {} location.reload(); };
+    if (dirty || saving) ask('Ще не всі зміни збережено на сервері. Вийти все одно?', 'Вийти').then(function (ok) { if (ok) go(); }); else go();
+  });
+
+  /* ---------------- admin panel ---------------- */
+  var admDirty = true, users = [];
+  var FN_ERR = { bad_username: 'Ім’я для входу: 3–32 символи, лише латинські літери, цифри, крапка, дефіс.', weak_password: 'Пароль — мінімум 8 символів.',
+    username_taken: 'Таке ім’я вже зайняте.', last_admin: 'Не можна залишити систему без жодного активного адміністратора.',
+    cannot_block_self: 'Себе заблокувати не можна.', cannot_delete_self: 'Себе видалити не можна.', admin_only: 'Це може лише адміністратор.' };
+  function fnErr(e) { var c = e && e.body && e.body.error; return FN_ERR[c] || ('Помилка: ' + (c || (e && (e.code || e.message)) || 'невідома')); }
+  function genPass() {
+    var a = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = new Uint32Array(10), s = '';
+    crypto.getRandomValues(b); for (var i = 0; i < 10; i++) s += a[b[i] % a.length]; return s;
+  }
+  function staffNames() { var seen = {}, out = []; S.staff.forEach(function (s) { var n = s.name.trim(); if (n && !seen[n]) { seen[n] = 1; out.push(n); } }); return out; }
+  function staffOpts(cur) {
+    var ns = staffNames(); if (cur && ns.indexOf(cur) < 0) ns.push(cur);
+    return '<option value="">— не прив’язано —</option>' + ns.map(function (n) { return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+  }
+  function when(ts) { if (!ts) return 'ще не входив(-ла)'; var d = new Date(ts); return d.toLocaleDateString('uk-UA') + ' ' + d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }); }
+  function renderAdmin() {
+    admDirty = false;
+    if (!isOwner) return;
+    document.getElementById('nuStaff').innerHTML = staffOpts('');
+    if (!document.getElementById('nuPass').value) document.getElementById('nuPass').value = genPass();
+    SB.fn('admin-users', { action: 'list' }).then(function (r) { users = r.users || []; drawUsers(); }, function (e) { document.getElementById('usersBox').textContent = fnErr(e); });
+    SB.select('app_config?select=min_version,latest_version,maintenance,message').then(function (r) {
+      var c = r && r[0]; if (!c) return;
+      document.getElementById('cfgMin').value = c.min_version; document.getElementById('cfgMaint').checked = !!c.maintenance;
+      document.getElementById('cfgMsg').value = c.message || '';
+      document.getElementById('cfgLatest').textContent = 'Опублікована остання версія: ' + c.latest_version + (window.grafikHost && grafikHost.version ? ' · у вас: ' + grafikHost.version : '');
+    }, function () {});
+    loadLog();
+  }
+  function drawUsers() {
+    var me = SB.userId(), RN = [['viewer', 'працівник'], ['editor', 'укладач'], ['admin', 'адміністратор']], RT = [['sched', 'графік і позначки'], ['staff', 'склад і правила'], ['pub', 'публікація']];
+    var h = '<table class="us"><thead><tr><th>Користувач</th><th>Роль</th><th>Рядок у складі</th><th>Права укладача</th><th>Стан</th><th></th></tr></thead><tbody>';
+    users.forEach(function (u) {
+      var self = u.id === me, r = u.rights || {};
+      h += '<tr data-u="' + u.id + '"' + (u.blocked ? ' class="blk"' : '') + '><td data-label="Користувач"><b>' + esc(u.username) + '</b>' + (self ? ' <span class="badge">це ви</span>' : '') + '<br><input data-f="full_name" value="' + esc(u.full_name || '') + '" placeholder="ПІБ" style="width:180px;margin-top:4px"></td>';
+      h += '<td data-label="Роль"><select data-f="role"' + (self ? ' disabled title="Свою роль змінити не можна"' : '') + '>' + RN.map(function (x) { return '<option value="' + x[0] + '"' + (u.role === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></td>';
+      h += '<td data-label="Рядок у складі"><select data-f="staff_name">' + staffOpts(u.staff_name || '') + '</select></td>';
+      h += '<td data-label="Права укладача" class="rt">' + (u.role === 'editor' ? RT.map(function (x) { return '<label><input type="checkbox" data-r="' + x[0] + '"' + (r[x[0]] !== false ? ' checked' : '') + ' style="width:16px;height:16px"> ' + x[1] + '</label>'; }).join('') : '<span class="hint">' + (u.role === 'admin' ? 'усі' : 'лише перегляд') + '</span>') + '</td>';
+      h += '<td data-label="Стан">' + (u.blocked ? '<span class="badge red">заблоковано</span>' : '<span class="badge grn">активний</span>') + (u.must_change_password ? ' <span class="badge amb">тимчасовий пароль</span>' : '') + '<br><span class="hint">вхід: ' + when(u.last_seen) + '</span></td>';
+      h += '<td><div class="acts"><button type="button" class="btn small" data-a="pass">Новий пароль</button>' +
+        (self ? '' : '<button type="button" class="btn small' + (u.blocked ? '' : ' danger') + '" data-a="' + (u.blocked ? 'unblock' : 'block') + '">' + (u.blocked ? 'Розблокувати' : 'Заблокувати') + '</button><button type="button" class="btn small danger" data-a="del">Видалити</button>') + '</div></td></tr>';
+    });
+    h += '</tbody></table>';
+    document.getElementById('usersBox').innerHTML = h;
+  }
+  function userById(id) { return users.filter(function (u) { return u.id === id; })[0]; }
+  function admCall(body, okMsg) {
+    return SB.fn('admin-users', body).then(function (r) { if (okMsg) toast(okMsg); return r; }, function (e) { toast(fnErr(e), 5000); throw e; });
+  }
+  function reloadUsers() { return SB.fn('admin-users', { action: 'list' }).then(function (r) { users = r.users || []; drawUsers(); }); }
+  document.getElementById('usersBox').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr[data-u]'); if (!tr) return;
+    var u = userById(tr.dataset.u), f = e.target.dataset.f, r = e.target.dataset.r, body = { action: 'update', id: u.id };
+    if (f) body[f] = e.target.value;
+    if (r) { var rr = Object.assign({ sched: true, staff: true, pub: true }, u.rights || {}); rr[r] = e.target.checked; body.rights = rr; }
+    admCall(body, 'Збережено').then(reloadUsers, reloadUsers);
+  });
+  document.getElementById('usersBox').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-a]'); if (!b) return;
+    var u = userById(b.closest('tr').dataset.u), a = b.dataset.a;
+    if (a === 'pass') {
+      var pw = genPass();
+      ask('Задати користувачу «' + u.username + '» новий тимчасовий пароль?\n\nНовий пароль: ' + pw + '\n\nЗапишіть або передайте його людині. Старий пароль перестане діяти; при вході програма попросить придумати власний.', 'Задати').then(function (ok) {
+        if (ok) admCall({ action: 'set_password', id: u.id, password: pw }, 'Пароль змінено').then(reloadUsers, function () {});
+      });
+    } else if (a === 'block' || a === 'unblock') {
+      ask(a === 'block' ? 'Заблокувати «' + u.username + '»?\nЛюдина не зможе увійти, а відкрита програма перестане показувати дані.' : 'Розблокувати «' + u.username + '»?', a === 'block' ? 'Заблокувати' : 'Розблокувати').then(function (ok) {
+        if (ok) admCall({ action: a, id: u.id }, a === 'block' ? 'Заблоковано' : 'Розблоковано').then(reloadUsers, function () {});
+      });
+    } else if (a === 'del') {
+      ask('Видалити користувача «' + u.username + '» назавжди?\nЯкщо можливо, краще заблокувати — тоді його можна буде повернути.', 'Видалити').then(function (ok) {
+        if (ok) admCall({ action: 'delete', id: u.id }, 'Видалено').then(reloadUsers, function () {});
+      });
+    }
+  });
+  document.getElementById('nuGen').addEventListener('click', function () { document.getElementById('nuPass').value = genPass(); });
+  document.getElementById('nuAdd').addEventListener('click', function () {
+    var body = { action: 'create', username: document.getElementById('nuName').value.trim().toLowerCase(), full_name: document.getElementById('nuFull').value.trim(),
+      role: document.getElementById('nuRole').value, staff_name: document.getElementById('nuStaff').value || null, password: document.getElementById('nuPass').value, dept_id: deptId };
+    admCall(body).then(function () {
+      ask('Користувача створено. Передайте людині:\n\nІм’я для входу: ' + body.username + '\nТимчасовий пароль: ' + body.password + '\n\nПри першому вході програма попросить змінити пароль.', 'Готово', 'Закрити');
+      ['nuName', 'nuFull'].forEach(function (i) { document.getElementById(i).value = ''; }); document.getElementById('nuPass').value = genPass();
+      reloadUsers(); loadLog();
+    }, function () {});
+  });
+  document.getElementById('cfgSave').addEventListener('click', function () {
+    var v = document.getElementById('cfgMin').value.trim();
+    if (!/^\d+\.\d+\.\d+$/.test(v)) { toast('Версія у форматі 1.2.3'); return; }
+    var maint = document.getElementById('cfgMaint').checked;
+    var go = function () {
+      SB.update('app_config?id=eq.1', { min_version: v, maintenance: maint, message: document.getElementById('cfgMsg').value.trim() }).then(function () {
+        toast('Збережено'); SB.rpc('log_event', { p_action: 'config', p_details: { min_version: v, maintenance: maint } }).then(loadLog, function () {});
+      }, function () { toast('Не вдалося зберегти'); });
+    };
+    if (maint) ask('Увімкнути режим обслуговування? Усі, крім адміністраторів, втратять доступ, доки ви його не вимкнете.', 'Увімкнути').then(function (ok) { if (ok) go(); }); else go();
+  });
+  var ACT = { login: 'вхід', publish: 'публікація', user_create: 'створено користувача', user_update: 'змінено користувача', user_password: 'новий пароль', user_block: 'заблоковано', user_unblock: 'розблоковано', user_delete: 'видалено користувача', config: 'налаштування програми' };
+  function loadLog() {
+    SB.select('audit_log?select=at,username,action,details&order=at.desc&limit=150').then(function (rows) {
+      document.getElementById('logBox').innerHTML = (rows || []).map(function (x) {
+        var d = x.details || {}, det = d.username ? d.username + (d.role ? ' (' + d.role + ')' : '') : d.ym ? d.ym : d.min_version ? 'мін. версія ' + d.min_version + (d.maintenance ? ', обслуговування' : '') : '';
+        return '<div><span>' + when(x.at) + '</span><span><b>' + esc(x.username || '') + '</b> — ' + esc(ACT[x.action] || x.action) + (det ? ': ' + esc(det) : '') + '</span></div>';
+      }).join('') || '<div><span class="hint">Записів ще немає</span></div>';
+    }, function () {});
+  }
+  document.getElementById('logRefresh').addEventListener('click', loadLog);
+  if (window.grafikHost && grafikHost.checkUpdate) { var ub = document.getElementById('updBtn'); ub.hidden = false; ub.addEventListener('click', function () { grafikHost.checkUpdate(true); }); }
+  document.querySelector('.tabs button[data-tab="adm"]').addEventListener('click', function () { admDirty = true; }, true);
+
+  /* ---------------- login and start ---------------- */
+  var gate = { mode: 'login' };
+  function gateShow(mode, msg) {
+    gate.mode = mode;
+    document.body.classList.add('gate'); document.body.classList.remove('loading');
+    var pw = mode === 'password';
+    document.getElementById('gUserL').hidden = mode !== 'login';
+    document.getElementById('gPassL').hidden = mode !== 'login';
+    document.getElementById('gNew1L').hidden = !pw; document.getElementById('gNew2L').hidden = !pw;
+    document.getElementById('gateBtn').hidden = mode === 'blocked';
+    document.getElementById('gateOut').hidden = mode === 'login';
+    document.getElementById('gateBtn').textContent = pw ? 'Зберегти пароль' : 'Увійти';
+    document.getElementById('gateIntro').textContent = pw ? 'Це ваш перший вхід. Придумайте власний пароль — тимчасовий більше не діятиме.' :
+      mode === 'blocked' ? '' : 'Увійдіть з ім’ям і паролем, які вам видав адміністратор.';
+    document.getElementById('gateMsg').textContent = msg || '';
+    var f = document.getElementById(pw ? 'gNew1' : 'gUser'); if (f && mode !== 'blocked') setTimeout(function () { f.focus(); }, 30);
+  }
+  function toGate(msg) { online = false; booted = false; role = null; gateShow('login', msg); }
+  var ERR = {
+    invalid_credentials: 'Невірне ім’я або пароль.', user_banned: 'Ваш доступ заблоковано. Зверніться до адміністратора.',
+    offline: 'Немає з’єднання з інтернетом.', over_request_rate_limit: 'Забагато спроб. Зачекайте кілька хвилин.',
+    weak_password: 'Пароль занадто простий (мінімум 8 символів).', same_password: 'Новий пароль має відрізнятися від старого.'
+  };
+  function errText(e) { return ERR[e && e.code] || ('Помилка: ' + ((e && (e.code || e.message)) || 'невідома')); }
+  document.getElementById('gateOut').addEventListener('click', function () { SB.signOut(); toGate(''); });
+  document.getElementById('gateForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('gateBtn'), msg = document.getElementById('gateMsg');
+    if (gate.mode === 'login') {
+      var u = document.getElementById('gUser').value.trim(), pw = document.getElementById('gPass').value;
+      if (!u || !pw) { msg.textContent = 'Введіть ім’я і пароль.'; return; }
+      btn.disabled = true; msg.textContent = '';
+      SB.signIn(u, pw).then(function () { document.getElementById('gPass').value = ''; return boot(true); }, function (er) { msg.textContent = errText(er); })
+        .then(function () { btn.disabled = false; });
+    } else if (gate.mode === 'update') {
+      if (window.grafikHost && grafikHost.checkUpdate) grafikHost.checkUpdate(true);
+    } else if (gate.mode === 'password') {
+      var a = document.getElementById('gNew1').value, b = document.getElementById('gNew2').value;
+      if (a.length < 8) { msg.textContent = 'Мінімум 8 символів.'; return; }
+      if (a !== b) { msg.textContent = 'Паролі не збігаються.'; return; }
+      btn.disabled = true;
+      SB.setPassword(a).then(function () { return SB.rpc('password_changed'); }).then(function () {
+        document.getElementById('gNew1').value = document.getElementById('gNew2').value = '';
+        toast('Пароль змінено'); return boot(false);
+      }, function (er) { msg.textContent = errText(er); }).then(function () { btn.disabled = false; });
+    }
+  });
+
+  function afterLoad() {
+    document.getElementById('month').value = S.ym;
+    renderAll(); if (activeTab === 'staff') renderStaff();
+  }
+  function boot(fresh) {
+    if (!SB.session()) { gateShow('login'); return Promise.resolve(); }
+    document.body.classList.remove('gate'); document.body.classList.add('loading');
+    return SB.select('profiles?select=id,username,full_name,role,dept_id,staff_name,rights,blocked,must_change_password&id=eq.' + SB.userId()).then(function (rows) {
+      profile = rows && rows[0];
+      if (!profile) { SB.signOut(); gateShow('login', 'Обліковий запис не налаштовано. Зверніться до адміністратора.'); return; }
+      if (profile.blocked) { gateShow('blocked', 'Ваш доступ заблоковано. Зверніться до адміністратора.'); return; }
+      if (!profile.dept_id) { gateShow('blocked', 'Вас ще не додано до відділення. Зверніться до адміністратора.'); return; }
+      return SB.config().then(function (c) { return c && c[0]; }, function () { return null; }).then(function (cfg) {
+        if (cfg && cfg.maintenance && profile.role !== 'admin') { gateShow('blocked', 'Тривають технічні роботи.' + (cfg.message ? '\n' + cfg.message : '') + '\nСпробуйте пізніше.'); return; }
+        var hv = window.grafikHost && grafikHost.version;
+        if (cfg && hv && cmpVer(hv, cfg.min_version) < 0) {
+          gateShow('blocked', 'Ваша версія програми (' + hv + ') застаріла. Потрібна ' + cfg.min_version + ' або новіша.' + (grafikHost.checkUpdate ? '' : '\nВстановіть нову версію.'));
+          if (grafikHost.checkUpdate) { var gb = document.getElementById('gateBtn'); gb.hidden = false; gb.textContent = 'Оновити програму'; gate.mode = 'update'; }
+          return;
+        }
+        if (profile.must_change_password) { gateShow('password'); return; }
+        return enter(fresh);
+      });
+    }, function (e) {
+      if (e.code === 'offline') return offlineStart();
+      if (e.status === 401 || e.code === 'not_signed_in' || e.code === 'refresh_token_not_found' || e.code === 'user_banned') { SB.signOut(); gateShow('login', e.code === 'user_banned' ? ERR.user_banned : 'Сеанс завершився — увійдіть знову.'); return; }
+      gateShow('login', errText(e));
+    });
+  }
+  function cmpVer(a, b) {
+    var x = String(a).split(/[.-]/).map(Number), y = String(b).split(/[.-]/).map(Number);
+    for (var i = 0; i < 3; i++) { var d = (x[i] || 0) - (y[i] || 0); if (d) return d; }
+    return 0;
+  }
+  function enter(fresh) {
+    {
+      deptId = profile.dept_id; online = true;
+      meName = profile.staff_name || ''; try { meName = meName || localStorage.getItem('grafik-me') || ''; } catch (e) {}
+      document.getElementById('who').textContent = (profile.full_name || profile.username) + ' · ' + ROLE_NAME[profile.role] + (window.grafikHost && grafikHost.version ? ' · v' + grafikHost.version : '');
+      if (fresh) SB.rpc('log_event', { p_action: 'login' }).then(null, function () {});
+      var effRole = window.GRAFIK_VIEWER_ONLY ? 'viewer' : profile.role;
+      isOwner = effRole === 'admin';
+      rights = isOwner ? Object.assign({}, FULL) : effRole === 'editor' ? Object.assign({}, FULL, profile.rights || {}) : { sched: false, staff: false, pub: false };
+      if (effRole === 'viewer') return startViewer();
+      return startEditor();
+    }
+  }
+  // no internet: show the last copy read-only
+  function offlineStart() {
+    var c = null; try { c = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    online = false; booted = true; setSync('Немає інтернету — лише перегляд збереженої копії');
+    if (c && c.S && c.S.staff) { S = c.S; deptId = c.dept; ver = c.ver; role = 'viewer'; asViewer = false; }
+    else role = 'viewer';
+    view = 'person'; document.body.classList.remove('gate'); afterLoad();
+  }
+  function startViewer() {
+    booted = true;
+    role = 'viewer'; view = 'person';
+    var n = new Date(); S.ym = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
+    setSync(''); afterLoad();
+  }
+  function startEditor() {
+    booted = true;
+    return SB.select('dept_state?select=data,version&dept_id=eq.' + deptId).then(function (rows) {
+      var r = rows && rows[0];
+      if (!r) { role = 'viewer'; setSync('Немає доступу до робочого графіка'); afterLoad(); return; }
+      ver = r.version;
+      var cached = null; try { cached = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+      S = (r.data && r.data.staff) ? r.data : defaults();
+      role = 'editor'; setSync('Збережено'); cacheLocal(); afterLoad();
+      if (!r.data || !r.data.staff) {
+        if (isOwner) ask('Графік на сервері ще порожній.\n\nЩоб перенести дані зі старої версії (claude.ai): відкрийте її → «Склад і налаштування» → «Зберегти файл копії», а тут → «Склад і налаштування» → «Відновити з файлу».', 'Зрозуміло');
+      } else if (cached && cached.pending && cached.dept === deptId && cached.ver === ver && cached.S && JSON.stringify(cached.S) !== JSON.stringify(r.data)) {
+        // unsaved local edits from the last session (e.g. internet was off)
+        ask('У цьому браузері є зміни, які не встигли зберегтися на сервері минулого разу. Відновити їх?', 'Відновити', 'Відкинути').then(function (ok) { if (ok) { S = cached.S; save(); afterLoad(); } else cacheLocal(); });
+      }
+    }, function (e) {
+      if (e.code === 'offline') return offlineStart();
+      toGate(errText(e));
+    });
+  }
+  // the session token could expire while the app stays open — re-check when the window comes back
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden || !online || !profile) return;
+    SB.select('profiles?select=blocked,role,rights&id=eq.' + profile.id).then(function (rows) {
+      var p = rows && rows[0];
+      if (!p || p.blocked) { toGate(ERR.user_banned); return; }
+      if (p.role !== profile.role || JSON.stringify(p.rights) !== JSON.stringify(profile.rights)) { toast('Ваші права змінено — оновлюю'); boot(false); }
+      else if (role === 'viewer') { loadPub(S.ym, true); }
+    }, function (e) { if (e.status === 401 || e.code === 'user_banned') toGate('Сеанс завершився — увійдіть знову.'); });
+  });
+  boot(false);
+  window.__grafik = { generate: generate, S: function () { return S; }, setS: function (x) { S = x; } };
+})();
+</script>
+</body>
+</html>
