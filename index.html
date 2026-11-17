@@ -229,7 +229,7 @@
       <div class="vonly hint">Ви переглядаєте затверджений графік. У «Моє» — ваші чергування; щоб подивитися чужі, оберіть інше прізвище.</div>
       <div class="row modes ed" id="modes"></div>
       <div class="row ed" style="margin-top:10px">
-        <span class="hint">Натисніть клітинку в рядку, щоб поставити позначку. Натисніть число дня в шапці, щоб позначити його святковим/вихідним.</span>
+        <span class="hint">Натисніть клітинку в рядку, щоб поставити позначку. «С» — святковий/вихідний день денного лікаря чи завідувача (черговим не ставиться).</span>
       </div>
       <div class="row ed" style="margin-top:8px">
         <label class="f" style="flex-direction:row;align-items:center;gap:8px">Хто чергував останню добу попереднього місяця (години після півночі переходять на 1-ше число):
@@ -475,10 +475,10 @@
   }
   function absCount(p) {
     var md = M(), a = md.abs[p] || {}, y = +S.ym.slice(0, 4), mo = +S.ym.slice(5, 7) - 1, D = new Date(y, mo + 1, 0).getDate(), c = {};
-    for (var d = 1; d <= D; d++) { var x = a[d]; if (x === 'В' || x === 'Н' || x === 'Л') c[x] = (c[x] || 0) + 1; }
+    for (var d = 1; d <= D; d++) { var x = a[d]; if (x === 'В' || x === 'Н' || x === 'Л' || x === 'С') c[x] = (c[x] || 0) + 1; }
     return c;
   }
-  var ABS_NAME = { 'В': 'відпустка', 'Н': 'навчання', 'Л': 'лікарняний' };
+  var ABS_NAME = { 'В': 'відпустка', 'Н': 'навчання', 'Л': 'лікарняний', 'С': 'святковий/вихідний' };
   function absText(c) { return Object.keys(c).map(function (k) { return ABS_NAME[k] + ' ' + c[k] + ' дн.'; }).join(', '); }
   function proposeExtra() {
     var md = M(), saved = md.extraSt; md.extraSt = {};
@@ -564,7 +564,7 @@
   }
   function fromSnap(P) {
     var dow = function (d) { return (new Date(P.y, P.mo, d).getDay() + 6) % 7; }, hol = P.hol || {}, abs = P.abs || {}; START = P.start != null ? P.start : 8;
-    return { y: P.y, mo: P.mo, D: P.D, dow: dow, off: function (d) { return dow(d) >= 5 || !!hol[d]; }, ab: function (p, d) { return (abs[p] && abs[p][d]) || ''; },
+    return { y: P.y, mo: P.mo, D: P.D, dow: dow, off: function (d) { return dow(d) >= 5; }, ab: function (p, d) { return (abs[p] && abs[p][d]) || ''; },
       rows: P.rows, uncovered: P.uncovered || [], md: { hol: hol, abs: abs, carry: '', manual: {} }, snap: true };
   }
   function currentG() {
@@ -574,8 +574,8 @@
   }
   function snapshot() {
     var G = generate(), abs = {};
-    Object.keys(G.md.abs).forEach(function (p) { var o = G.md.abs[p], q = {}; Object.keys(o).forEach(function (d) { if (o[d] === 'В' || o[d] === 'Н' || o[d] === 'Л') q[d] = o[d]; }); if (Object.keys(q).length) abs[p] = q; });
-    return { v: 1, ym: S.ym, y: G.y, mo: G.mo, D: G.D, dept: S.dept, signs: S.signs, note: S.note || '', title: S.title || '', start: START, hol: G.md.hol, abs: abs, uncovered: G.uncovered, at: Date.now(),
+    Object.keys(G.md.abs).forEach(function (p) { var o = G.md.abs[p], q = {}; Object.keys(o).forEach(function (d) { if (o[d] === 'В' || o[d] === 'Н' || o[d] === 'Л' || o[d] === 'С') q[d] = o[d]; }); if (Object.keys(q).length) abs[p] = q; });
+    return { v: 1, ym: S.ym, y: G.y, mo: G.mo, D: G.D, dept: S.dept, signs: S.signs, note: S.note || '', title: S.title || '', start: START, hol: {}, abs: abs, uncovered: G.uncovered, at: Date.now(),
       rows: G.rows.map(function (r) { return { id: r.id, p: r.p, type: r.type, st: r.st, s: { pos: r.s.pos, sumisnyk: r.s.sumisnyk || false }, c: r.c, k: r.k, tm: r.tm, h: r.h, n: r.n, wd: r.wd, wdN: r.wdN, norm: r.norm, zcov: r.zcov || null }; }) };
   }
   function sigOf(sn) {
@@ -661,12 +661,14 @@
     var D = new Date(y, mo + 1, 0).getDate();
     var md = M();
     var dow = function (d) { return (new Date(y, mo, d).getDay() + 6) % 7; };
-    var off = function (d) { return dow(d) >= 5 || !!md.hol[d]; };
-    var ab = function (p, d) { return (md.abs[p] && md.abs[p][d]) || ''; };
+    var off = function (d) { return dow(d) >= 5; };
+    var abD = function (p, d) { return (md.abs[p] && md.abs[p][d]) || ''; };
+    var ab = function (p, d) { var x = abD(p, d); return x === 'С' ? '' : x; };
     var away = function (p, d) { var x = ab(p, d); return x === 'В' || x === 'Н' || x === 'Л'; };
+    var awayD = function (p, d) { return away(p, d) || abD(p, d) === 'С'; };
     var rows = staffFor(md).map(function (s) {
-      var p = s.name.trim();
-      var wd = 0; for (var d = 1; d <= D; d++) if (!off(d) && !away(p, d)) wd++;
+      var p = s.name.trim(), aw = s.type === 'duty' ? away : awayD;
+      var wd = 0; for (var d = 1; d <= D; d++) if (!off(d) && !aw(p, d)) wd++;
       return { s: s, id: s.id, p: p, type: s.type, st: s.st, wdN: wd, c: {}, k: {}, tm: {}, h: 0, n: 0, wd: 0, norm: r1(wd * H * s.st), over: [], short: null, manH: 0, carry: 0 };
     });
     var prefDays = function (r) { return (r.s.days && r.s.days.length) ? r.s.days : null; };
@@ -680,7 +682,7 @@
     var whyFree = function (r, from, to) {
       var st = { work: 0, rest: 0, abs: {}, only: 0 };
       for (var d = from; d <= to; d++) {
-        var a = ab(r.p, d);
+        var a = r.type === 'duty' ? ab(r.p, d) : abD(r.p, d);
         if (a) st.abs[a] = (st.abs[a] || 0) + 1;
         else if (rows.some(function (q) { return q.p === r.p && q.c[d]; })) st.work++;
         else if (isBusy(r.p, d)) st.rest++;
@@ -735,7 +737,7 @@
     rows.forEach(function (r) {
       if (r.type !== 'day') return;
       var base = r.s.base || 8, dh = r1(base * r.st);
-      for (var d = 1; d <= D; d++) if (!off(d) && !away(r.p, d) && !r.c[d]) {
+      for (var d = 1; d <= D; d++) if (!off(d) && !awayD(r.p, d) && !r.c[d]) {
         r.c[d] = (base === 7.7 || base === 7.2) ? hmm(base * r.st) : fmt(dh); r.k[d] = 'dayv'; r.tm[d] = [0, dh]; r.h = r1(r.h + dh); r.wd++;
       }
     });
@@ -817,13 +819,13 @@
       if (r.type !== 'zav') return;
       var put = function (d, x) { r.c[d] = fmt(x); r.k[d] = 'dayv'; r.tm[d] = [0, x]; r.h = r1(r.h + x); r.wd++; mark(r.p, d); };
       var days = [];
-      for (var d = 1; d <= D; d++) if (!off(d) && !isBusy(r.p, d) && !ab(r.p, d) && !r.c[d]) days.push(d);
+      for (var d = 1; d <= D; d++) if (!off(d) && !isBusy(r.p, d) && !abD(r.p, d) && !r.c[d]) days.push(d);
       var need = Math.min(days.length, Math.ceil(Math.max(0, r.norm - r.h) / 8 - 1e-9)), used = {};
       for (var i = 0; i < need; i++) { var dd = days[Math.floor(i * days.length / need)]; if (used[dd]) continue; used[dd] = 1; var x = Math.min(8, r1(r.norm - r.h)); if (x > 0.05) put(dd, x); }
       var guard = 0;
       while (r1(r.norm - r.h) > 0.05 && guard++ < 40) {
         var L = r1(r.norm - r.h), x2 = Math.min(8, L), free = null;
-        for (var d3 = 1; d3 <= D && !free; d3++) if (!isBusy(r.p, d3) && !r.c[d3] && !ab(r.p, d3)) free = d3;
+        for (var d3 = 1; d3 <= D && !free; d3++) if (!isBusy(r.p, d3) && !r.c[d3] && !abD(r.p, d3)) free = d3;
         if (free) { put(free, x2); continue; }
         var up = null;
         for (var d4 = 1; d4 <= D && !up; d4++) if (r.c[d4] === '8' && r.k[d4] === 'dayv') up = d4;
@@ -844,7 +846,7 @@
           if (over <= 0.05) return;
           var zKey = z.id + ':' + d;
           if (!(z.k[d] === 'dayv' && z.tm[d] && z.tm[d][0] === 0 && z.tm[d][1] >= 8)) {
-            if (off(d) || z.c[d] || ab(z.p, d) || isBusy(z.p, d)) return;
+            if (off(d) || z.c[d] || abD(z.p, d) || isBusy(z.p, d)) return;
             var from = Object.keys(z.c).map(Number).filter(function (x) { return z.k[x] === 'dayv' && z.c[x] === '8' && !usedZ[z.id + ':' + x]; })[0];
             if (!from) return;
             z.c[d] = z.c[from]; z.k[d] = 'dayv'; z.tm[d] = z.tm[from];
@@ -867,8 +869,8 @@
         else if (!zavs.length) why = 'у складі немає завідувача з денними годинами';
         else if (zavs.every(function (z) { return z.p === r.p; })) why = 'це чергування самої завідувачки — ранок за себе вона не закриває';
         else {
-          var z = zavs.filter(function (q) { return q.p !== r.p; })[0], a = ab(z.p, d);
-          if (off(d)) why = dow(d) >= 5 ? 'вихідний — завідувачка вдень не працює' : 'святковий день — завідувачка вдень не працює';
+          var z = zavs.filter(function (q) { return q.p !== r.p; })[0], a = abD(z.p, d);
+          if (off(d)) why = 'вихідний — завідувачка вдень не працює';
           else if (a) why = 'у завідувачки позначка ' + a;
           else if (rows.some(function (q) { return q.p === z.p && q.type === 'duty' && q.c[d]; })) why = 'завідувачка того дня сама чергує';
           else if (z.c[d] && !(z.tm[d] && z.tm[d][1] >= 8)) why = 'у завідувачки того дня неповна зміна';
@@ -915,7 +917,7 @@
         L.push('Ранок (08:00–16:00) не перекладено на завідувачку: ' + wo.map(function (w) { return byWhy[w].join(', ') + '-го — ' + w; }).join('; ') + '.');
       }
       if (!r.over.length && !r.carry && !r.manH) L.push('Чергування йдуть цілими добами (24 або 16 год), і норма на них рівно не ділиться.');
-      tip = 'Що можна зробити: у режимі ✎ вписати в одну з діб менше годин (напр. 16 замість 24 — решту доби програма віддасть іншому лікарю), зняти в когось позначку ×, або позначити свято/вихідний правильно.';
+      tip = 'Що можна зробити: у режимі ✎ вписати в одну з діб менше годин (напр. 16 замість 24 — решту доби програма віддасть іншому лікарю), або зняти в когось позначку ×.';
     } else {
       var sh = r.short;
       if (sh) {
@@ -946,14 +948,14 @@
     h += '<div class="title"><span class="t1">' + esc(P0.title || 'ГРАФІК РОБОТИ МЕДПЕРСОНАЛУ') + '</span><span class="t2">на <u>&nbsp;' + MONTHS[G.mo] + '&nbsp;</u> місяць ' + G.y + ' р</span><span class="t1" style="margin-top:6px">' + esc(P0.dept) + '</span></div>';
     h += '<div class="col"><span>„ЗАТВЕРДЖУЮ”</span><span>' + esc(sg.rDir || 'Медичний директор') + '</span><span>' + esc(sg.hosp) + '</span><span>____________ ' + esc(sg.meddir) + '</span></div></div>';
     h += '<table class="g">' + colgroup + '<thead><tr><th rowspan="1">№</th><th>Прізвище, ім’я, по батькові</th><th class="vt"><span>посада</span></th><th class="vt"><span>ставка</span></th>';
-    for (var d = 1; d <= D; d++) h += '<th class="day' + (G.off(d) ? ' we' : '') + '" data-day="' + d + '" title="Натисніть, щоб позначити святковим"><b style="font-size:12px">' + d + '</b><br>' + W[G.dow(d)] + '</th>';
+    for (var d = 1; d <= D; d++) h += '<th class="day' + (G.off(d) ? ' we' : '') + '"><b style="font-size:12px">' + d + '</b><br>' + W[G.dow(d)] + '</th>';
     h += '<th class="vt"><span>робочі дні</span></th><th class="vt"><span>нічні</span></th><th class="vt"><span>години</span></th><th class="vt"><span>підпис</span></th></tr></thead><tbody>';
     var top = G.rows.filter(function (r) { return r.type !== 'duty'; }), bot = G.rows.filter(function (r) { return r.type === 'duty'; });
     var line = function (r, no) {
       var posT = esc(r.s.pos) + (r.s.sumisnyk && r.s.pos !== 'сум.' ? ' <b style="color:#7c2d12">сум.</b>' : (r.s.pos === 'сум.' ? '' : ''));
       var t = '<tr><td>' + no + '</td><td class="l">' + esc(r.p) + '</td><td class="l sm">' + posT + '</td><td class="sm">' + String(r.st).replace('.', ',') + '</td>';
       for (var d = 1; d <= D; d++) {
-        var cls = 'c' + (G.off(d) ? ' we' : ''), v = r.c[d] || '', a = G.ab(r.p, d);
+        var cls = 'c' + (G.off(d) ? ' we' : ''), v = r.c[d] || '', a = G.ab(r.p, d); if (a === 'С' && r.type === 'duty') a = '';
         if (a && !v) { v = a; cls += a === '×' ? ' wish' : ' abs'; } else if (r.k[d]) cls += ' ' + r.k[d];
         var ttl = (r.zcov && r.zcov[d] && r.tm[d]) ? ' title="Чергування з ' + hm(r.tm[d][0]) + ': до цього денну частину закриває ' + esc(r.zcov[d]) + ' (денна зміна)"' : '';
         t += '<td class="' + cls + '" data-row="' + r.id + '" data-d="' + d + '"' + ttl + '>' + esc(v) + '</td>';
@@ -974,7 +976,7 @@
     if (!P0.note) h += '<b>24 год</b> – з 8.00 по 8.00 &nbsp; 16 год – з 16.00 по 8.00 &nbsp; 8 год – з 24.00 по 8.00 або з 8.00 по 16.00 &nbsp; другий черговий — лише денні години з 08.00<br>';
     if (!P0.note) h += 'З 1 числа <u>16 год</u> – з 08.00 по 24.00 і <u>8 год</u> з 24.00 по 08.00 год 1-го числа наступного місяця. Нічні години — з 22.00 до 06.00.</div>';
     h += '<div class="signs"><span>' + esc(sg.rNurse || 'Сестра медична старша') + ' ____________ ' + esc(sg.nurse) + '</span><span>' + esc(sg.rHead || 'Зав. відділенням') + ' ____________ ' + esc(sg.head) + '</span></div>';
-    h += '<div class="legend noprint"><span><b style="color:#1d4ed8">24</b> чергування</span><span><b style="color:#15803d;text-decoration:underline">8</b> другий черговий (лише вдень, 08:00–16:00)</span><span><b style="color:#7c2d12;font-style:italic">24</b> вписано вручну</span><span><b>В Н Л</b> відпустка / навчання / лікарняний</span><span><b style="color:#7c2d12">сум.</b> сумісник</span><span><b style="color:#b91c1c">×</b> не ставити</span><span style="background:#fef9c3;padding:0 6px">години ≠ норма (наведіть, щоб побачити норму)</span></div>';
+    h += '<div class="legend noprint"><span><b style="color:#1d4ed8">24</b> чергування</span><span><b style="color:#15803d;text-decoration:underline">8</b> другий черговий (лише вдень, 08:00–16:00)</span><span><b style="color:#7c2d12;font-style:italic">24</b> вписано вручну</span><span><b>В Н Л</b> відпустка / навчання / лікарняний</span><span><b>С</b> святковий/вихідний (денні лікарі)</span><span><b style="color:#7c2d12">сум.</b> сумісник</span><span><b style="color:#b91c1c">×</b> не ставити</span><span style="background:#fef9c3;padding:0 6px">години ≠ норма (наведіть, щоб побачити норму)</span></div>';
     document.getElementById('sheet').innerHTML = h;
     var w = '';
     if (G.uncovered.length) w = 'Не вдалося закрити чергуванням: ' + G.uncovered.join(', ') + ' ' + MONTHS_G[G.mo] + ' — впишіть вручну.';
@@ -1008,10 +1010,10 @@
     for (var d = 1; d <= G.D; d++) {
       var items = [], absent = [], seen = {};
       G.rows.forEach(function (r) { if (r.type !== 'day' && r.c[d] && r.tm[d]) items.push({ r: r, s: r.tm[d][0], e: r.tm[d][1] }); });
-      G.rows.forEach(function (r) { if (r.type !== 'duty' || seen[r.p]) return; seen[r.p] = 1; var a = G.ab(r.p, d); if (a) absent.push(r.p + ' (' + a + ')'); });
+      G.rows.forEach(function (r) { if (r.type !== 'duty' || seen[r.p]) return; seen[r.p] = 1; var a = G.ab(r.p, d); if (a && a !== 'С') absent.push(r.p + ' (' + a + ')'); });
       items.sort(function (a, b) { return a.s - b.s; });
       var unc = G.uncovered.indexOf(d) >= 0;
-      h += '<div class="dayc' + (G.off(d) ? ' we' : '') + (unc ? ' unc' : '') + (isCur && now.getDate() === d ? ' today' : '') + '"><div class="dh"><span><b>' + d + ' ' + MONTHS_G[G.mo] + '</b>, ' + WFULL[G.dow(d)] + (G.md.hol[d] ? ' · святковий' : '') + '</span><button type="button" class="btn small ed" data-hol="' + d + '">' + (G.md.hol[d] ? 'Не свято' : 'Свято') + '</button></div>';
+      h += '<div class="dayc' + (G.off(d) ? ' we' : '') + (unc ? ' unc' : '') + (isCur && now.getDate() === d ? ' today' : '') + '"><div class="dh"><span><b>' + d + ' ' + MONTHS_G[G.mo] + '</b>, ' + WFULL[G.dow(d)] + '</span></div>';
       h += items.map(function (it) {
         var r = it.r, lbl = r.type === 'zav' ? 'денна (зав.)' : r.k[d] === 'extra' ? '2-й черговий' : r.k[d] === 'manual' ? 'вручну' : 'чергування';
         return '<div class="it"><span>' + esc(r.p) + ' <span class="hint">' + lbl + '</span></span><span style="white-space:nowrap"><b class="' + (r.k[d] || '') + '">' + esc(r.c[d]) + '</b> · ' + hm(it.s) + '–' + hm(it.e) + '</span></div>';
@@ -1020,7 +1022,7 @@
       if (absent.length) h += '<div class="hint">Відсутні: ' + esc(absent.join(', ')) + '</div>';
       h += '</div>';
     }
-    return '<div class="hint ed" style="margin-bottom:8px">Хто працює кожного дня. Позначки В/Н/Л/× і ручні години зручно ставити у вигляді «По людях».</div>' + h;
+    return '<div class="hint ed" style="margin-bottom:8px">Хто працює кожного дня. Позначки В/Н/Л/С/× і ручні години зручно ставити у вигляді «По людях».</div>' + h;
   }
   function personHtml(G) {
     if (G.snap) return minePersonHtml(G);
@@ -1035,17 +1037,17 @@
     h += '<div class="cal7">' + W.map(function (w) { return '<div class="wh">' + w + '</div>'; }).join('');
     for (var i = 0; i < G.dow(1); i++) h += '<div></div>';
     for (var d = 1; d <= G.D; d++) {
-      var v = r.c[d] || '', a = G.ab(r.p, d), vc = '';
+      var v = r.c[d] || '', a = G.ab(r.p, d), vc = ''; if (a === 'С' && r.type === 'duty') a = '';
       if (a && !v) { v = a; vc = a === '×' ? 'wish' : 'abs'; } else if (r.k[d]) vc = r.k[d];
       h += '<button type="button" class="cd' + (G.off(d) ? ' we' : '') + '" data-row="' + r.id + '" data-d="' + d + '" aria-label="' + d + ' ' + MONTHS_G[G.mo] + (v ? ': ' + esc(v) : '') + '"><span class="n">' + d + '</span><span class="v ' + vc + '">' + esc(v) + '</span></button>';
     }
-    h += '</div><div class="hint" style="margin-top:8px">Оберіть угорі В, Н, Л, ×, ✎ або «Стерти» — і натискайте дні в календарі.</div>';
+    h += '</div><div class="hint" style="margin-top:8px">Оберіть угорі В, Н, Л, С, ×, ✎ або «Стерти» — і натискайте дні в календарі.</div>';
     return h;
   }
   function uniqueDutyNames() { var seen = {}, out = []; S.staff.forEach(function (s) { var n = s.name.trim(); if (s.type === 'duty' && n && !seen[n]) { seen[n] = 1; out.push(n); } }); return out; }
 
   function renderModes() {
-    var list = [['В', 'В — відпустка'], ['Н', 'Н — навчання'], ['Л', 'Л — лікарняний'], ['×', '× — не ставити'], ['✎', '✎ Вписати години'], ['', 'Стерти']];
+    var list = [['В', 'В — відпустка'], ['Н', 'Н — навчання'], ['Л', 'Л — лікарняний'], ['С', 'С — святковий/вихідний'], ['×', '× — не ставити'], ['✎', '✎ Вписати години'], ['', 'Стерти']];
     var h = list.map(function (m) { return '<button type="button" class="btn" data-mode="' + m[0] + '" aria-pressed="' + (mode === m[0]) + '">' + m[1] + '</button>'; }).join('');
     h += '<label class="f" style="flex-direction:row;align-items:center;gap:6px;' + (mode === '✎' ? '' : 'opacity:.5') + '">години: <input id="manualVal" style="width:70px" value="' + esc(manualVal) + '" ' + (mode === '✎' ? '' : 'disabled') + '></label>';
     document.getElementById('modes').innerHTML = h;
@@ -1229,9 +1231,6 @@
   document.getElementById('sheet').addEventListener('click', function (e) {
     var wc = e.target.closest('td[data-why]');
     if (wc) { var we = document.getElementById('why-' + wc.dataset.why); if (we) { we.open = true; openWhy[wc.dataset.why] = 1; we.scrollIntoView({ behavior: 'smooth', block: 'center' }); } return; }
-    var th = e.target.closest('th[data-day]');
-    var md = M();
-    if (th) { if (noSched()) return; var dd = +th.dataset.day; if (md.hol[dd]) delete md.hol[dd]; else md.hol[dd] = true; save(); renderAll(); return; }
     var td = e.target.closest('td[data-row]'); if (!td) return;
     applyCell(td.dataset.row, +td.dataset.d);
   });
@@ -1247,6 +1246,7 @@
       if (md.abs[p]) delete md.abs[p][d];
       if (md.manual[id]) delete md.manual[id][d];
     } else {
+      if (mode === 'С' && staff.type === 'duty') { toast('«С» ставиться лише денним лікарям і завідувачу — у черговиків усі дні робочі.'); return; }
       md.abs[p] = md.abs[p] || {};
       if (md.abs[p][d] === mode) delete md.abs[p][d]; else md.abs[p][d] = mode;
     }
@@ -1258,10 +1258,6 @@
     ask('Прибрати тимчасові ставки заміщення цього місяця?', 'Прибрати').then(function (ok) { if (ok) { M().extraSt = {}; save(); renderAll(); } });
   });
   document.getElementById('views').addEventListener('click', function (e) { var b = e.target.closest('button[data-view]'); if (!b) return; view = b.dataset.view; renderSchedule(); });
-  document.getElementById('daysView').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-hol]'); if (!b || noSched()) return;
-    var md = M(), d = +b.dataset.hol; if (md.hol[d]) delete md.hol[d]; else md.hol[d] = true; save(); renderAll();
-  });
   document.getElementById('personView').addEventListener('click', function (e) { var b = e.target.closest('button[data-row]'); if (b) applyCell(b.dataset.row, +b.dataset.d); });
   document.getElementById('personView').addEventListener('change', function (e) {
     if (e.target.id === 'personSel') { personSel = e.target.value; renderSchedule(); }
@@ -1293,7 +1289,7 @@
   document.getElementById('roleBtn').addEventListener('click', function () { asViewer = !asViewer; view = asViewer ? 'person' : 'days'; renderAll(); });
   document.getElementById('carry').addEventListener('change', function (e) { M().carry = e.target.value; save(); renderAll(); });
   document.getElementById('clearMarks').addEventListener('click', function () {
-    ask('Очистити всі позначки, свята і ручні правки цього місяця?', 'Очистити').then(function (ok) {
+    ask('Очистити всі позначки і ручні правки цього місяця?', 'Очистити').then(function (ok) {
       if (!ok) return; S.months[S.ym] = { abs: {}, hol: {}, manual: {}, carry: M().carry }; save(); renderAll();
     });
   });
