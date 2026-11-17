@@ -397,11 +397,15 @@
   var saveT = null, saving = false, dirty = false;
   function cacheLocal() { try { localStorage.setItem(KEY, JSON.stringify({ dept: deptId, ver: ver, S: S, pending: dirty })); } catch (e) {} }
   function save() {
+    // only the editor (with the real working schedule loaded) ever writes to the server;
+    // in view mode S holds no working data, so saving it would wipe the schedule
+    if (role !== 'editor') return;
     dirty = true; cacheLocal();
     if (!online) { setSync('Немає інтернету — збережу, коли з’явиться'); return; }
     clearTimeout(saveT); setSync('Зберігаю…'); saveT = setTimeout(flush, 900);
   }
   function flush() {
+    if (role !== 'editor') { dirty = false; return; }
     if (!online || saving || !dirty) return;
     saving = true; dirty = false;
     SB.rpc('save_state', { p_dept: deptId, p_data: S, p_version: ver }).then(function (v) {
@@ -417,6 +421,7 @@
   }
   // somebody else saved first
   function conflict() {
+    if (role !== 'editor') { dirty = false; return; }
     setSync('Конфлікт версій');
     SB.select('dept_state?select=data,version,updated_at,updated_by&dept_id=eq.' + deptId).then(function (rows) {
       var r = rows && rows[0]; if (!r) return;
@@ -1617,7 +1622,7 @@
     }, function (e) { if (e.status === 401 || e.code === 'user_banned') toGate('Сеанс завершився — увійдіть знову.'); });
   });
   boot(false);
-  window.__grafik = { generate: generate, S: function () { return S; }, setS: function (x) { S = x; } };
+  window.__grafik = { generate: generate, S: function () { return S; }, setS: function (x) { S = x; }, save: save, setRole: function (r) { role = r; online = true; }, flush: flush };
 })();
 </script>
 </body>
