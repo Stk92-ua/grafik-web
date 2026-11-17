@@ -456,15 +456,21 @@
   }
   // zavCover (завідувачка закриває ранок при перебрі) — особливість окремого відділення, тому за замовчуванням ВИМКНЕНО;
   // відділення, якому це потрібно, вмикає його в «Правила розрахунку» (у збережених даних лишається явно увімкненим).
-  var CFG0 = { week: 38.5, maxSt: 1.75, duty: true, start: 8, splitLast: true, nightFrom: 22, nightTo: 6, restPref: 2, restMin: 1, extra: true, dayPart: 8, zavCover: false };
-  var START = 8, LASTFULL = 16, NF = 22, NT = 6, GAP_P = 3, GAP_M = 2, XMAX = 8, DUTY_ON = true, EXTRA_ON = true, ZAVCOVER = true;
+  var CFG0 = { week: 38.5, maxSt: 1.75, duty: true, start: 8, splitLast: true, nightFrom: 22, nightTo: 6, restPref: 2, restMin: 1, extra: true, dayPart: 8, zavCover: false, dayLen: 7.7, zavRest: true, zavSameDay: false };
+  var ZAVREST = true, ZAVSAMEDAY = false, DAYLEN = 7.7, START = 8, LASTFULL = 16, NF = 22, NT = 6, GAP_P = 3, GAP_M = 2, XMAX = 8, DUTY_ON = true, EXTRA_ON = true, ZAVCOVER = true;
   function applyCfg() {
     var c = S.cfg = S.cfg || {};
+    // v1.0.7: денна зміна за замовчуванням 7.42 (08:00–15:42). Старі дані (без dayLen) — один раз переводимо денних з 8 год на 7.42
+    // правила завідувача (v1.0.7) — особливість окремого відділення: там, де вже ввімкнено «завідувач закриває ранок»
+    // (лише відділення, перенесене зі старої версії), вмикаємо їхні правила; нові відділення отримують звичайні (відпочинок після доби, без денної в день чергування)
+    if (c.zavRest == null && c.zavCover === true) c.zavRest = false;
+    if (c.zavSameDay == null && c.zavCover === true) c.zavSameDay = true;
+    if (c.dayLen == null && S.staff) S.staff.forEach(function (s) { if (s.type === 'day' && (s.base == null || s.base === 8)) s.base = 7.7; });
     Object.keys(CFG0).forEach(function (k) { if (c[k] == null || (typeof CFG0[k] === 'number' && (typeof c[k] !== 'number' || isNaN(c[k])))) c[k] = CFG0[k]; });
     H = Math.round(c.week / 5 * 100) / 100; MAXST = c.maxSt; START = c.start;
     LASTFULL = (c.splitLast && START > 0) ? 24 - START : 24;
     NF = c.nightFrom; NT = c.nightTo; GAP_P = Math.max(c.restPref, c.restMin) + 1; GAP_M = c.restMin + 1;
-    XMAX = c.dayPart; DUTY_ON = !!c.duty; EXTRA_ON = !!c.extra; ZAVCOVER = !!c.zavCover;
+    XMAX = c.dayPart; DAYLEN = c.dayLen === 8 ? 8 : 7.7; ZAVREST = !!c.zavRest; ZAVSAMEDAY = !!c.zavSameDay; DUTY_ON = !!c.duty; EXTRA_ON = !!c.extra; ZAVCOVER = !!c.zavCover;
     return c;
   } // max total rate per person (main + temporary replacement)
   function staffFor(md) {
@@ -741,7 +747,7 @@
     // fixed-day staff
     rows.forEach(function (r) {
       if (r.type !== 'day') return;
-      var base = r.s.base || 8, dh = r1(base * r.st);
+      var base = r.s.base || DAYLEN, dh = r1(base * r.st);
       for (var d = 1; d <= D; d++) if (!off(d) && !awayD(r.p, d) && !r.c[d]) {
         r.c[d] = (base === 7.7 || base === 7.2) ? hmm(base * r.st) : fmt(dh); r.k[d] = 'dayv'; r.tm[d] = [0, dh]; r.h = r1(r.h + dh); r.wd++;
       }
@@ -819,19 +825,24 @@
         give(r, day, s, e, 'extra'); extraOn[day] = (extraOn[day] || 0) + 1;
       }
     });
-    // head of department: day hours up to the norm
+    // head of department: day hours up to the norm.
+    // «відпочинок після доби» за замовчуванням лише для чергових: завідувач може працювати вдень і наступного дня після свого чергування
+    // того самого дня — лише якщо час не перетинається з денною зміною (напр. її чергування не 24, а з 16:00)
+    var worksOn = function (p, d) { return rows.some(function (q) { if (q.p !== p || !q.c[d]) return false; if (!ZAVSAMEDAY) return true; var tm = q.tm[d]; return !tm || (tm[0] < DAYLEN - 0.01 && tm[1] > 0.01); }); };
+    var restDay = function (p, d) { return isBusy(p, d) && !rows.some(function (q) { return q.p === p && q.c[d]; }); };
+    var zavBusy = function (p, d) { return (ZAVREST && restDay(p, d)) || worksOn(p, d); };
     rows.forEach(function (r) {
       if (r.type !== 'zav') return;
-      var put = function (d, x) { r.c[d] = fmt(x); r.k[d] = 'dayv'; r.tm[d] = [0, x]; r.h = r1(r.h + x); r.wd++; mark(r.p, d); };
+      var put = function (d, x) { r.c[d] = DAYLEN === 8 ? fmt(x) : hmm(x); r.k[d] = 'dayv'; r.tm[d] = [0, x]; r.h = r1(r.h + x); r.wd++; mark(r.p, d); };
       var days = [];
-      for (var d = 1; d <= D; d++) if (!off(d) && !isBusy(r.p, d) && !abD(r.p, d) && !r.c[d]) days.push(d);
-      var need = Math.min(days.length, Math.ceil(Math.max(0, r.norm - r.h) / 8 - 1e-9)), used = {};
-      for (var i = 0; i < need; i++) { var dd = days[Math.floor(i * days.length / need)]; if (used[dd]) continue; used[dd] = 1; var x = Math.min(8, r1(r.norm - r.h)); if (x > 0.05) put(dd, x); }
+      for (var d = 1; d <= D; d++) if (!off(d) && !zavBusy(r.p, d) && !abD(r.p, d) && !r.c[d]) days.push(d);
+      var need = Math.min(days.length, Math.ceil(Math.max(0, r.norm - r.h) / DAYLEN - 1e-9)), used = {};
+      for (var i = 0; i < need; i++) { var dd = days[Math.floor(i * days.length / need)]; if (used[dd]) continue; used[dd] = 1; var x = Math.min(DAYLEN, r1(r.norm - r.h)); if (x > 0.05) put(dd, x); }
       var guard = 0;
       while (r1(r.norm - r.h) > 0.05 && guard++ < 40) {
-        var L = r1(r.norm - r.h), x2 = Math.min(8, L), free = null;
-        // only working days (Mon–Fri), at most 8 h a day — like every day-shift worker; the rest is shown as «не в нормі»
-        for (var d3 = 1; d3 <= D && !free; d3++) if (!off(d3) && !isBusy(r.p, d3) && !r.c[d3] && !abD(r.p, d3)) free = d3;
+        var L = r1(r.norm - r.h), x2 = Math.min(DAYLEN, L), free = null;
+        // only working days (Mon–Fri), at most one day shift (DAYLEN) a day — like every day-shift worker; the rest is shown as «не в нормі»
+        for (var d3 = 1; d3 <= D && !free; d3++) if (!off(d3) && !zavBusy(r.p, d3) && !r.c[d3] && !abD(r.p, d3)) free = d3;
         if (free) { put(free, x2); continue; }
         r.short = whyFree(r, 1, D); break;
       }
@@ -848,15 +859,16 @@
           over = r1(r.h - r.norm);
           if (over <= 0.05) return;
           var zKey = z.id + ':' + d;
-          if (!(z.k[d] === 'dayv' && z.tm[d] && z.tm[d][0] === 0 && z.tm[d][1] >= 8)) {
-            if (off(d) || z.c[d] || abD(z.p, d) || isBusy(z.p, d)) return;
-            var from = Object.keys(z.c).map(Number).filter(function (x) { return z.k[x] === 'dayv' && z.c[x] === '8' && !usedZ[z.id + ':' + x]; })[0];
+          var fullDay = function (x) { return z.k[x] === 'dayv' && z.tm[x] && z.tm[x][0] === 0 && z.tm[x][1] >= DAYLEN - 0.01; };
+          if (!fullDay(d)) {
+            if (off(d) || z.c[d] || abD(z.p, d) || zavBusy(z.p, d)) return;
+            var from = Object.keys(z.c).map(Number).filter(function (x) { return fullDay(x) && z.tm[x][1] <= DAYLEN + 0.01 && !usedZ[z.id + ':' + x]; })[0];
             if (!from) return;
             z.c[d] = z.c[from]; z.k[d] = 'dayv'; z.tm[d] = z.tm[from];
             delete z.c[from]; delete z.k[from]; delete z.tm[from]; mark(z.p, d);
           }
           if (usedZ[zKey]) return;
-          var x = r1(Math.min(over, 8, z.tm[d][1]));
+          var x = r1(Math.min(over, DAYLEN, z.tm[d][1]));
           var e = r.tm[d][1];
           r.tm[d] = [x, e]; r.c[d] = fmt(e - x); r.h = r1(r.h - x); r.zcov = r.zcov || {}; r.zcov[d] = z.p;
           usedZ[zKey] = true;
@@ -876,8 +888,8 @@
           if (off(d)) why = 'вихідний — завідувачка вдень не працює';
           else if (a) why = 'у завідувачки позначка ' + a;
           else if (rows.some(function (q) { return q.p === z.p && q.type === 'duty' && q.c[d]; })) why = 'завідувачка того дня сама чергує';
-          else if (z.c[d] && !(z.tm[d] && z.tm[d][1] >= 8)) why = 'у завідувачки того дня неповна зміна';
-          else why = 'у завідувачки не лишилось вільних 8-годинних змін, щоб перенести на цей день';
+          else if (z.c[d] && !(z.tm[d] && z.tm[d][1] >= DAYLEN - 0.01)) why = 'у завідувачки того дня неповна зміна';
+          else why = 'у завідувачки не лишилось вільних повних денних змін, щоб перенести на цей день';
         }
         return { d: d, why: why };
       });
@@ -917,7 +929,7 @@
       if (nz.length) {
         var byWhy = {}, wo = [];
         nz.forEach(function (x) { if (!byWhy[x.why]) { byWhy[x.why] = []; wo.push(x.why); } byWhy[x.why].push(x.d); });
-        L.push('Ранок (08:00–16:00) не перекладено на завідувачку: ' + wo.map(function (w) { return byWhy[w].join(', ') + '-го — ' + w; }).join('; ') + '.');
+        L.push('Ранок (08:00–' + (DAYLEN === 8 ? '16:00' : '15:42') + ') не перекладено на завідувачку: ' + wo.map(function (w) { return byWhy[w].join(', ') + '-го — ' + w; }).join('; ') + '.');
       }
       if (!r.over.length && !r.carry && !r.manH) L.push('Чергування йдуть цілими добами (24 або 16 год), і норма на них рівно не ділиться.');
       tip = 'Що можна зробити: у режимі ✎ вписати в одну з діб менше годин (напр. 16 замість 24 — решту доби програма віддасть іншому лікарю), або зняти в когось позначку ×.';
@@ -932,7 +944,7 @@
         L.push('Не лишилось жодного вільного дня, щоб добрати години: ' + bits.join(', ') + (r.type === 'duty' ? '; останній день місяця — лише основне чергування.' : '.'));
         tip = 'Що можна зробити: зняти частину позначок ×, дозволити інші дні тижня (у «Склад і налаштування»), або вписати години вручну ✎.';
         if (r.type === 'zav') {
-          L.push('Денні години завідувача ставляться лише в будні (пн–пт), не більше 8 год на день; суботи й неділі не використовуються. Не вистачає ' + fmt(r1(r.norm - r.h)) + ' год.');
+          L.push('Денні години завідувача ставляться лише в будні (пн–пт), не більше ' + hmm(DAYLEN) + ' год на день; суботи й неділі не використовуються. Не вистачає ' + fmt(r1(r.norm - r.h)) + ' год.');
           tip = 'Що можна зробити: у режимі ✎ вписати години вручну (за потреби — і у вихідний), зменшити кількість чергувань завідувача або ставку денних годин у «Склад і налаштування».';
         }
       } else if (r.manH) {
@@ -1103,9 +1115,13 @@
       sel('nightFrom', 'Нічні години з', hrs) + sel('nightTo', 'до', hrs) +
       sel('restPref', 'Бажаний відпочинок після доби', rest) + sel('restMin', 'Мінімальний відпочинок', rest) +
       num('dayPart', 'Денна частина доби, год') +
+      sel('dayLen', 'Денна зміна (завідувач, нові денні працівники)', [[7.7, '7.42 (08:00–15:42)'], [8, '8 год (08:00–16:00)']]) +
       chk('splitLast', 'В останній день місяця години після півночі переходять на наступний місяць') +
       chk('extra', 'Другий черговий удень — щоб добрати години до норми') +
+      '<div style="flex-basis:100%;font-weight:600;margin-top:6px">Завідувач (денні години до норми)</div>' +
       chk('zavCover', 'Завідувач закриває ранок, коли в лікаря перебір') +
+      chk('zavRest', 'Завідувач відпочиває після свого чергування (як черговий); якщо вимкнено — наступного дня після доби може працювати вдень') +
+      chk('zavSameDay', 'Завідувач може працювати вдень у день свого чергування, якщо воно не цілодобове і час не перетинається (напр. чергування з 16:00)') +
       '<button type="button" class="btn small" id="rulesReset">Повернути стандартні правила</button>';
     renderAccess();
   }
@@ -1333,7 +1349,7 @@
     save(); renderStaff(); renderSchedule();
   });
   document.getElementById('addDuty').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий лікар', pos: 'лікар', st: 1, type: 'duty' }); save(); renderStaff(); });
-  document.getElementById('addDay').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий працівник', pos: '', st: 1, type: 'day', base: 8 }); save(); renderStaff(); });
+  document.getElementById('addDay').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий працівник', pos: '', st: 1, type: 'day', base: applyCfg().dayLen === 8 ? 8 : 7.7 }); save(); renderStaff(); });
   document.getElementById('signs').addEventListener('change', function (e) {
     var k = e.target.dataset.sign; if (!k) return;
     if (k === 'dept' || k === 'title' || k === 'note') S[k] = e.target.value; else S.signs[k] = e.target.value;
