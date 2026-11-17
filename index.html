@@ -830,12 +830,10 @@
       var guard = 0;
       while (r1(r.norm - r.h) > 0.05 && guard++ < 40) {
         var L = r1(r.norm - r.h), x2 = Math.min(8, L), free = null;
-        for (var d3 = 1; d3 <= D && !free; d3++) if (!isBusy(r.p, d3) && !r.c[d3] && !abD(r.p, d3)) free = d3;
+        // only working days (Mon–Fri), at most 8 h a day — like every day-shift worker; the rest is shown as «не в нормі»
+        for (var d3 = 1; d3 <= D && !free; d3++) if (!off(d3) && !isBusy(r.p, d3) && !r.c[d3] && !abD(r.p, d3)) free = d3;
         if (free) { put(free, x2); continue; }
-        var up = null;
-        for (var d4 = 1; d4 <= D && !up; d4++) if (r.c[d4] === '8' && r.k[d4] === 'dayv') up = d4;
-        if (!up) { r.short = whyFree(r, 1, D); break; }
-        var nx = 8 + Math.min(8, L); r.c[up] = fmt(nx); r.tm[up] = [0, nx]; r.h = r1(r.h + nx - 8); r.n = r1(r.n + nightOf(0, nx));
+        r.short = whyFree(r, 1, D); break;
       }
     });
     // a duty doctor over the norm: the head's day shift (08:00–16:00) covers the morning, the doctor starts later
@@ -933,6 +931,10 @@
         if (sh.only) bits.push(sh.only + ' дн. — не свій день тижня (режим «тільки»)');
         L.push('Не лишилось жодного вільного дня, щоб добрати години: ' + bits.join(', ') + (r.type === 'duty' ? '; останній день місяця — лише основне чергування.' : '.'));
         tip = 'Що можна зробити: зняти частину позначок ×, дозволити інші дні тижня (у «Склад і налаштування»), або вписати години вручну ✎.';
+        if (r.type === 'zav') {
+          L.push('Денні години завідувача ставляться лише в будні (пн–пт), не більше 8 год на день; суботи й неділі не використовуються. Не вистачає ' + fmt(r1(r.norm - r.h)) + ' год.');
+          tip = 'Що можна зробити: у режимі ✎ вписати години вручну (за потреби — і у вихідний), зменшити кількість чергувань завідувача або ставку денних годин у «Склад і налаштування».';
+        }
       } else if (r.manH) {
         L.push('Вписано вручну ' + fmt(r.manH) + ' год, а вільних днів для добору не знайшлось.');
       } else L.push('Години не вдалося добрати до норми.');
