@@ -400,12 +400,14 @@
     // only the editor (with the real working schedule loaded) ever writes to the server;
     // in view mode S holds no working data, so saving it would wipe the schedule
     if (role !== 'editor') return;
+    // збірка «попередній перегляд» (window.GRAFIK_PREVIEW) нічого не записує на сервер
+    if (window.GRAFIK_PREVIEW) { setSync('Попередній перегляд — зміни не зберігаються'); return; }
     dirty = true; cacheLocal();
     if (!online) { setSync('Немає інтернету — збережу, коли з’явиться'); return; }
     clearTimeout(saveT); setSync('Зберігаю…'); saveT = setTimeout(flush, 900);
   }
   function flush() {
-    if (role !== 'editor') { dirty = false; return; }
+    if (role !== 'editor' || window.GRAFIK_PREVIEW) { dirty = false; return; }
     if (!online || saving || !dirty) return;
     saving = true; dirty = false;
     SB.rpc('save_state', { p_dept: deptId, p_data: S, p_version: ver }).then(function (v) {
@@ -454,31 +456,34 @@
     S.ym = cur; carryDepth--;
     return name;
   }
-  // zavCover (завідувачка закриває ранок при перебрі) — особливість окремого відділення, тому за замовчуванням ВИМКНЕНО;
-  // відділення, якому це потрібно, вмикає його в «Правила розрахунку» (у збережених даних лишається явно увімкненим).
-  var CFG0 = { week: 38.5, maxSt: 1.75, duty: true, start: 8, splitLast: true, nightFrom: 22, nightTo: 6, restPref: 2, restMin: 1, extra: true, dayPart: 8, zavCover: false, dayLen: 7.7, zavRest: true, zavSameDay: false };
-  var ZAVREST = true, ZAVSAMEDAY = false, DAYLEN = 7.7, START = 8, LASTFULL = 16, NF = 22, NT = 6, GAP_P = 3, GAP_M = 2, XMAX = 8, DUTY_ON = true, EXTRA_ON = true, ZAVCOVER = true;
+  // v1.0.8: окремі правила завідувача (zavCover/zavRest/zavSameDay) прибрано — завідувач добирає денні години до норми
+  // як звичайний працівник: не закриває чужі ранки, відпочиває після своєї доби, не працює вдень у день свого чергування.
+  var CFG0 = { week: 38.5, maxSt: 1.75, duty: true, start: 8, splitLast: true, nightFrom: 22, nightTo: 6, restPref: 2, restMin: 1, extra: true, dayPart: 8, dayLen: 7.7 };
+  var DAYLEN = 7.7, START = 8, LASTFULL = 16, NF = 22, NT = 6, GAP_P = 3, GAP_M = 2, XMAX = 8, DUTY_ON = true, EXTRA_ON = true;
   function applyCfg() {
     var c = S.cfg = S.cfg || {};
     // v1.0.7: денна зміна за замовчуванням 7.42 (08:00–15:42). Старі дані (без dayLen) — один раз переводимо денних з 8 год на 7.42
-    // правила завідувача (v1.0.7) — особливість окремого відділення: там, де вже ввімкнено «завідувач закриває ранок»
-    // (лише відділення, перенесене зі старої версії), вмикаємо їхні правила; нові відділення отримують звичайні (відпочинок після доби, без денної в день чергування)
-    if (c.zavRest == null && c.zavCover === true) c.zavRest = false;
-    if (c.zavSameDay == null && c.zavCover === true) c.zavSameDay = true;
+    delete c.zavCover; delete c.zavRest; delete c.zavSameDay; // правила завідувача прибрано у v1.0.8
     if (c.dayLen == null && S.staff) S.staff.forEach(function (s) { if (s.type === 'day' && (s.base == null || s.base === 8)) s.base = 7.7; });
+    // v1.0.8: денні, у яких зміна дорівнює зміні з правил, тепер «за правилами» — зміна адміністратором у правилах діє і на них
+    if (!c.baseRule && S.staff) { var dl0 = c.dayLen == null ? CFG0.dayLen : c.dayLen; S.staff.forEach(function (s) { if (s.type === 'day' && s.base === dl0) delete s.base; }); c.baseRule = true; }
     Object.keys(CFG0).forEach(function (k) { if (c[k] == null || (typeof CFG0[k] === 'number' && (typeof c[k] !== 'number' || isNaN(c[k])))) c[k] = CFG0[k]; });
     H = Math.round(c.week / 5 * 100) / 100; MAXST = c.maxSt; START = c.start;
     LASTFULL = (c.splitLast && START > 0) ? 24 - START : 24;
     NF = c.nightFrom; NT = c.nightTo; GAP_P = Math.max(c.restPref, c.restMin) + 1; GAP_M = c.restMin + 1;
-    XMAX = c.dayPart; DAYLEN = c.dayLen === 8 ? 8 : 7.7; ZAVREST = !!c.zavRest; ZAVSAMEDAY = !!c.zavSameDay; DUTY_ON = !!c.duty; EXTRA_ON = !!c.extra; ZAVCOVER = !!c.zavCover;
+    XMAX = c.dayPart; DAYLEN = (c.dayLen >= 1 && c.dayLen <= 12) ? c.dayLen : 7.7; DUTY_ON = !!c.duty; EXTRA_ON = !!c.extra;
     return c;
   } // max total rate per person (main + temporary replacement)
   function staffFor(md) {
+    // «цього місяця — як черговий»: денний працівник або завідувач у цьому місяці рахується точно як черговий (нижня частина бланка)
+    var ad = md.asDuty || {}, base = S.staff.map(function (s) {
+      return (ad[s.id] && (s.type === 'day' || s.type === 'zav')) ? Object.assign({}, s, { type: 'duty', asDuty: true }) : s;
+    });
     var ex = md.extraSt || {}, names = Object.keys(ex).filter(function (n) { return ex[n] > 0; });
-    if (!names.length) return S.staff;
+    if (!names.length) return base;
     var lastIdx = {}, out = [];
     S.staff.forEach(function (s, i) { if (s.type === 'duty') lastIdx[s.name.trim()] = i; });
-    S.staff.forEach(function (s, i) {
+    base.forEach(function (s, i) {
       out.push(s);
       names.forEach(function (n) { if (lastIdx[n] === i) out.push({ id: 'tmp-' + n, name: n, pos: 'сум.', st: ex[n], type: 'duty', tmp: true, sumisnyk: true, days: s.days, dmode: s.dmode }); });
     });
@@ -587,7 +592,7 @@
     var G = generate(), abs = {};
     Object.keys(G.md.abs).forEach(function (p) { var o = G.md.abs[p], q = {}; Object.keys(o).forEach(function (d) { if (o[d] === 'В' || o[d] === 'Н' || o[d] === 'Л' || o[d] === 'С') q[d] = o[d]; }); if (Object.keys(q).length) abs[p] = q; });
     return { v: 1, ym: S.ym, y: G.y, mo: G.mo, D: G.D, dept: S.dept, signs: S.signs, note: S.note || '', title: S.title || '', start: START, hol: {}, abs: abs, uncovered: G.uncovered, at: Date.now(),
-      rows: G.rows.map(function (r) { return { id: r.id, p: r.p, type: r.type, st: r.st, s: { pos: r.s.pos, sumisnyk: r.s.sumisnyk || false }, c: r.c, k: r.k, tm: r.tm, h: r.h, n: r.n, wd: r.wd, wdN: r.wdN, norm: r.norm, zcov: r.zcov || null }; }) };
+      rows: G.rows.map(function (r) { return { id: r.id, p: r.p, type: r.type, st: r.st, s: { pos: r.s.pos, sumisnyk: r.s.sumisnyk || false, asDuty: r.s.asDuty || false }, c: r.c, k: r.k, tm: r.tm, h: r.h, n: r.n, wd: r.wd, wdN: r.wdN, norm: r.norm, zcov: r.zcov || null }; }) };
   }
   function sigOf(sn) {
     var t = JSON.stringify([sn.rows.map(function (r) { return [r.p, r.st, r.c, r.tm]; }), sn.hol, sn.abs, sn.signs, sn.dept, sn.note, sn.title, sn.start]), h = 0;
@@ -596,6 +601,7 @@
   }
   function publish() {
     if (!rights.pub) return;
+    if (window.GRAFIK_PREVIEW) { toast('Попередній перегляд — публікація вимкнена'); return; }
     if (!online) { toast('Немає зв’язку з сервером — публікація неможлива'); return; }
     var sn = snapshot();
     ask('Опублікувати графік на ' + MONTHS[sn.mo] + ' ' + sn.y + ' для працівників?\nВони бачитимуть саме цю версію, доки ви не опублікуєте нову. Позначки × і пояснення норм вони не побачать.', 'Опублікувати').then(function (ok) {
@@ -744,12 +750,13 @@
         }
       });
     });
-    // fixed-day staff
+    // fixed-day staff (з v1.0.8 і завідувач: щодня в будні — денна зміна × ставка)
     rows.forEach(function (r) {
-      if (r.type !== 'day') return;
-      var base = r.s.base || DAYLEN, dh = r1(base * r.st);
+      if (r.type !== 'day' && r.type !== 'zav') return;
+      // денна зміна задається на 1,0 ставки (7.42); для іншої ставки — пропорційно (0,75 → 5.47, 0,5 → 3.51)
+      var base = r.type === 'zav' ? DAYLEN : (r.s.base || DAYLEN), dh = r1(base * r.st);
       for (var d = 1; d <= D; d++) if (!off(d) && !awayD(r.p, d) && !r.c[d]) {
-        r.c[d] = (base === 7.7 || base === 7.2) ? hmm(base * r.st) : fmt(dh); r.k[d] = 'dayv'; r.tm[d] = [0, dh]; r.h = r1(r.h + dh); r.wd++;
+        r.c[d] = Math.abs(base - Math.round(base)) > 1e-6 ? hmm(base * r.st) : fmt(dh); r.k[d] = 'dayv'; r.tm[d] = [0, dh]; r.h = r1(r.h + dh); r.wd++;
       }
     });
     var pick = function (d, ex, gap, minRem) {
@@ -825,75 +832,6 @@
         give(r, day, s, e, 'extra'); extraOn[day] = (extraOn[day] || 0) + 1;
       }
     });
-    // head of department: day hours up to the norm.
-    // «відпочинок після доби» за замовчуванням лише для чергових: завідувач може працювати вдень і наступного дня після свого чергування
-    // того самого дня — лише якщо час не перетинається з денною зміною (напр. її чергування не 24, а з 16:00)
-    var worksOn = function (p, d) { return rows.some(function (q) { if (q.p !== p || !q.c[d]) return false; if (!ZAVSAMEDAY) return true; var tm = q.tm[d]; return !tm || (tm[0] < DAYLEN - 0.01 && tm[1] > 0.01); }); };
-    var restDay = function (p, d) { return isBusy(p, d) && !rows.some(function (q) { return q.p === p && q.c[d]; }); };
-    var zavBusy = function (p, d) { return (ZAVREST && restDay(p, d)) || worksOn(p, d); };
-    rows.forEach(function (r) {
-      if (r.type !== 'zav') return;
-      var put = function (d, x) { r.c[d] = DAYLEN === 8 ? fmt(x) : hmm(x); r.k[d] = 'dayv'; r.tm[d] = [0, x]; r.h = r1(r.h + x); r.wd++; mark(r.p, d); };
-      var days = [];
-      for (var d = 1; d <= D; d++) if (!off(d) && !zavBusy(r.p, d) && !abD(r.p, d) && !r.c[d]) days.push(d);
-      var need = Math.min(days.length, Math.ceil(Math.max(0, r.norm - r.h) / DAYLEN - 1e-9)), used = {};
-      for (var i = 0; i < need; i++) { var dd = days[Math.floor(i * days.length / need)]; if (used[dd]) continue; used[dd] = 1; var x = Math.min(DAYLEN, r1(r.norm - r.h)); if (x > 0.05) put(dd, x); }
-      var guard = 0;
-      while (r1(r.norm - r.h) > 0.05 && guard++ < 40) {
-        var L = r1(r.norm - r.h), x2 = Math.min(DAYLEN, L), free = null;
-        // only working days (Mon–Fri), at most one day shift (DAYLEN) a day — like every day-shift worker; the rest is shown as «не в нормі»
-        for (var d3 = 1; d3 <= D && !free; d3++) if (!off(d3) && !zavBusy(r.p, d3) && !r.c[d3] && !abD(r.p, d3)) free = d3;
-        if (free) { put(free, x2); continue; }
-        r.short = whyFree(r, 1, D); break;
-      }
-    });
-    // a duty doctor over the norm: the head's day shift (08:00–16:00) covers the morning, the doctor starts later
-    var zavs = rows.filter(function (r) { return ZAVCOVER && r.type === 'zav'; }), usedZ = {};
-    duty.forEach(function (r) {
-      zavs.forEach(function (z) {
-        if (z.p === r.p) return;
-        var over = r1(r.h - r.norm);
-        if (over <= 0.05) return;
-        var ds = Object.keys(r.c).map(Number).filter(function (d) { return r.k[d] === 'duty' && r.tm[d] && r.tm[d][0] === 0 && r.tm[d][1] >= 16; });
-        ds.forEach(function (d) {
-          over = r1(r.h - r.norm);
-          if (over <= 0.05) return;
-          var zKey = z.id + ':' + d;
-          var fullDay = function (x) { return z.k[x] === 'dayv' && z.tm[x] && z.tm[x][0] === 0 && z.tm[x][1] >= DAYLEN - 0.01; };
-          if (!fullDay(d)) {
-            if (off(d) || z.c[d] || abD(z.p, d) || zavBusy(z.p, d)) return;
-            var from = Object.keys(z.c).map(Number).filter(function (x) { return fullDay(x) && z.tm[x][1] <= DAYLEN + 0.01 && !usedZ[z.id + ':' + x]; })[0];
-            if (!from) return;
-            z.c[d] = z.c[from]; z.k[d] = 'dayv'; z.tm[d] = z.tm[from];
-            delete z.c[from]; delete z.k[from]; delete z.tm[from]; mark(z.p, d);
-          }
-          if (usedZ[zKey]) return;
-          var x = r1(Math.min(over, DAYLEN, z.tm[d][1]));
-          var e = r.tm[d][1];
-          r.tm[d] = [x, e]; r.c[d] = fmt(e - x); r.h = r1(r.h - x); r.zcov = r.zcov || {}; r.zcov[d] = z.p;
-          usedZ[zKey] = true;
-        });
-      });
-    });
-    // why the head could not take the morning of the remaining full duties
-    duty.forEach(function (r) {
-      if (r1(r.h - r.norm) <= 0.15) return;
-      r.noZ = Object.keys(r.c).map(Number).filter(function (d) { return r.k[d] === 'duty' && r.tm[d] && r.tm[d][0] === 0 && r.tm[d][1] >= 16; }).map(function (d) {
-        var why;
-        if (!ZAVCOVER) why = 'правило «завідувач закриває ранок» вимкнено в правилах розрахунку';
-        else if (!zavs.length) why = 'у складі немає завідувача з денними годинами';
-        else if (zavs.every(function (z) { return z.p === r.p; })) why = 'це чергування самої завідувачки — ранок за себе вона не закриває';
-        else {
-          var z = zavs.filter(function (q) { return q.p !== r.p; })[0], a = abD(z.p, d);
-          if (off(d)) why = 'вихідний — завідувачка вдень не працює';
-          else if (a) why = 'у завідувачки позначка ' + a;
-          else if (rows.some(function (q) { return q.p === z.p && q.type === 'duty' && q.c[d]; })) why = 'завідувачка того дня сама чергує';
-          else if (z.c[d] && !(z.tm[d] && z.tm[d][1] >= DAYLEN - 0.01)) why = 'у завідувачки того дня неповна зміна';
-          else why = 'у завідувачки не лишилось вільних повних денних змін, щоб перенести на цей день';
-        }
-        return { d: d, why: why };
-      });
-    });
     return { y: y, mo: mo, D: D, dow: dow, off: off, ab: abD, rows: rows, uncovered: uncovered, md: md, carryName: carryName, carryAuto: !md.carry && !!carryName };
   }
 
@@ -925,12 +863,6 @@
         var others = o.others.map(function (x) { return x.p + (sameName(G, x.p) ? ' (' + stLabel(x.st) + ')' : '') + ' — ' + x.why; }).join('; ');
         L.push(o.d + '-го треба було закрити ' + fmt(o.len) + ' год, а до норми лишалось ' + fmt(o.rem) + '. Інші не могли: ' + (others || 'інших лікарів немає') + '.');
       });
-      var nz = (r.noZ || []).filter(function (x) { return !r.zcov || !r.zcov[x.d]; });
-      if (nz.length) {
-        var byWhy = {}, wo = [];
-        nz.forEach(function (x) { if (!byWhy[x.why]) { byWhy[x.why] = []; wo.push(x.why); } byWhy[x.why].push(x.d); });
-        L.push('Ранок (08:00–' + (DAYLEN === 8 ? '16:00' : '15:42') + ') не перекладено на завідувачку: ' + wo.map(function (w) { return byWhy[w].join(', ') + '-го — ' + w; }).join('; ') + '.');
-      }
       if (!r.over.length && !r.carry && !r.manH) L.push('Чергування йдуть цілими добами (24 або 16 год), і норма на них рівно не ділиться.');
       tip = 'Що можна зробити: у режимі ✎ вписати в одну з діб менше годин (напр. 16 замість 24 — решту доби програма віддасть іншому лікарю), або зняти в когось позначку ×.';
     } else {
@@ -943,10 +875,6 @@
         if (sh.only) bits.push(sh.only + ' дн. — не свій день тижня (режим «тільки»)');
         L.push('Не лишилось жодного вільного дня, щоб добрати години: ' + bits.join(', ') + (r.type === 'duty' ? '; останній день місяця — лише основне чергування.' : '.'));
         tip = 'Що можна зробити: зняти частину позначок ×, дозволити інші дні тижня (у «Склад і налаштування»), або вписати години вручну ✎.';
-        if (r.type === 'zav') {
-          L.push('Денні години завідувача ставляться лише в будні (пн–пт), не більше ' + hmm(DAYLEN) + ' год на день; суботи й неділі не використовуються. Не вистачає ' + fmt(r1(r.norm - r.h)) + ' год.');
-          tip = 'Що можна зробити: у режимі ✎ вписати години вручну (за потреби — і у вихідний), зменшити кількість чергувань завідувача або ставку денних годин у «Склад і налаштування».';
-        }
       } else if (r.manH) {
         L.push('Вписано вручну ' + fmt(r.manH) + ' год, а вільних днів для добору не знайшлось.');
       } else L.push('Години не вдалося добрати до норми.');
@@ -969,7 +897,9 @@
     h += '<table class="g">' + colgroup + '<thead><tr><th rowspan="1">№</th><th>Прізвище, ім’я, по батькові</th><th class="vt"><span>посада</span></th><th class="vt"><span>ставка</span></th>';
     for (var d = 1; d <= D; d++) h += '<th class="day' + (G.off(d) ? ' we' : '') + '"><b style="font-size:12px">' + d + '</b><br>' + W[G.dow(d)] + '</th>';
     h += '<th class="vt"><span>робочі дні</span></th><th class="vt"><span>нічні</span></th><th class="vt"><span>години</span></th><th class="vt"><span>підпис</span></th></tr></thead><tbody>';
-    var top = G.rows.filter(function (r) { return r.type !== 'duty'; }), bot = G.rows.filter(function (r) { return r.type === 'duty'; });
+    // «як черговий» (asDuty): години як у чергового, але рядок лишається на своєму місці у верхній частині
+    var isTop = function (r) { return r.type !== 'duty' || !!(r.s && r.s.asDuty); };
+    var top = G.rows.filter(isTop), bot = G.rows.filter(function (r) { return !isTop(r); });
     var line = function (r, no) {
       var posT = esc(r.s.pos) + (r.s.sumisnyk && r.s.pos !== 'сум.' ? ' <b style="color:#7c2d12">сум.</b>' : (r.s.pos === 'сум.' ? '' : ''));
       var t = '<tr><td>' + no + '</td><td class="l">' + esc(r.p) + '</td><td class="l sm">' + posT + '</td><td class="sm">' + String(r.st).replace('.', ',') + '</td>';
@@ -979,7 +909,7 @@
         var ttl = (r.zcov && r.zcov[d] && r.tm[d]) ? ' title="Чергування з ' + hm(r.tm[d][0]) + ': до цього денну частину закриває ' + esc(r.zcov[d]) + ' (денна зміна)"' : '';
         t += '<td class="' + cls + '" data-row="' + r.id + '" data-d="' + d + '"' + ttl + '>' + esc(v) + '</td>';
       }
-      var bad = !G.snap && r.type !== 'day' && Math.abs(r.h - r.norm) > 0.15;
+      var bad = !G.snap && r.type === 'duty' && Math.abs(r.h - r.norm) > 0.15;
       t += '<td class="tot">' + (r.type !== 'duty' ? r.wd : '') + '</td><td class="tot">' + (r.n ? fmt(r.n) : '') + '</td>';
       t += '<td class="tot' + (bad ? ' mark' : '') + '"' + (bad ? ' data-why="' + r.id + '" title="Норма ' + fmt(r.norm) + '. Натисніть — пояснення"' : ' title="Норма ' + fmt(r.norm) + '"') + '>' + fmt(r.h) + '</td><td></td></tr>';
       return t;
@@ -999,7 +929,7 @@
     document.getElementById('sheet').innerHTML = h;
     var w = '';
     if (G.uncovered.length) w = 'Не вдалося закрити чергуванням: ' + G.uncovered.join(', ') + ' ' + MONTHS_G[G.mo] + ' — впишіть вручну.';
-    var badRows = G.rows.filter(function (r) { return !G.snap && r.type !== 'day' && Math.abs(r.h - r.norm) > 0.15; });
+    var badRows = G.rows.filter(function (r) { return !G.snap && r.type === 'duty' && Math.abs(r.h - r.norm) > 0.15; });
     if (badRows.length) w += (w ? ' ' : '') + 'Не в нормі: ' + badRows.map(function (r) { return r.p + ' (' + String(r.st).replace('.', ',') + '): ' + fmt(r.h) + ' з ' + fmt(r.norm); }).join('; ') + '.';
     document.getElementById('warn').textContent = w;
     var exs = G.md.extraSt || {}, exn = Object.keys(exs).filter(function (n) { return exs[n] > 0; });
@@ -1049,7 +979,7 @@
     if (!rows.some(function (x) { return x.id === personSel; })) { var me = rows.filter(function (x) { return x.p === meName; })[0]; personSel = (me || rows[0] || {}).id; }
     var r = rows.filter(function (x) { return x.id === personSel; })[0]; if (!r) return '';
     var h = '<label class="f">Працівник <select id="personSel">' + rows.map(function (x) { return '<option value="' + x.id + '"' + (x.id === personSel ? ' selected' : '') + '>' + esc(x.p + ' — ' + x.s.pos + ', ' + stLabel(x.st)) + '</option>'; }).join('') + '</select></label>';
-    var bad = r.type !== 'day' && Math.abs(r.h - r.norm) > 0.15;
+    var bad = r.type === 'duty' && Math.abs(r.h - r.norm) > 0.15;
     var ac = absText(absCount(r.p));
     h += '<div style="margin:10px 0;font-weight:600' + (bad ? ';color:#92400e' : '') + '">' + fmt(r.h) + ' год з норми ' + fmt(r.norm) + (r.n ? ' · нічних ' + fmt(r.n) : '') + (bad ? ' — не в нормі' : ' — у нормі') + '</div>' + (ac ? '<div class="hint" style="margin:-4px 0 10px">Відсутність: ' + esc(ac) + '</div>' : '');
     if (bad) { var ex = explain(G, r); h += '<div class="why"><ul>' + ex.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' + (ex.tip ? '<div class="hint">' + esc(ex.tip) + '</div>' : '') + '</div><div style="height:10px"></div>'; }
@@ -1079,9 +1009,11 @@
     S.staff.forEach(function (s, i) {
       h += '<tr data-i="' + i + '"><td data-label="ПІБ"><input class="name" data-k="name" value="' + esc(s.name) + '" aria-label="ПІБ"></td>';
       h += '<td data-label="Посада"><input data-k="pos" value="' + esc(s.pos) + '" style="width:130px" aria-label="Посада">' + (s.type !== 'zav' ? '<label title="Позаштатний / внутрішній сумісник — у бланку позначка «сум.»" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-top:4px;color:var(--muted)"><input type="checkbox" data-k="sumisnyk"' + (s.sumisnyk ? ' checked' : '') + ' style="width:15px;height:15px"> сумісник</label>' : '') + '</td>';
-      h += '<td data-label="Ставка"><select data-k="st" aria-label="Ставка">' + opt(0.25, s.st, '0,25') + opt(0.5, s.st, '0,5') + opt(0.75, s.st, '0,75') + opt(1, s.st, '1,0') + '</select></td>';
-      h += '<td data-label="Як рахувати"><select data-k="type" aria-label="Як рахувати">' + opt('duty', s.type, 'Чергування (нижня частина)') + opt('day', s.type, 'Денні щодня (верхня)') + opt('zav', s.type, 'Денні до норми (зав.)') + '</select></td>';
-      h += (s.type === 'day' ? '<td data-label="Денні год на 1,0 ставки">' : '<td>') + (s.type === 'day' ? '<select data-k="base" aria-label="Денні години">' + opt(6, s.base, '6') + opt(7.2, s.base, '7.12 (36 год/тиж)') + opt(7.7, s.base, '7.42 (08.00–15.42)') + opt(8, s.base, '8 (08.00–16.00)') + '</select>' : '<span class="hint">—</span>') + '</td>';
+      h += '<td data-label="Ставка"><select data-k="st" aria-label="Ставка">' + [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75].filter(function (x) { return x <= Math.max(MAXST, s.st) + 1e-9; }).map(function (x) { return opt(x, s.st, x === 1 ? '1,0' : stLabel(x)); }).join('') + '</select></td>';
+      h += '<td data-label="Як рахувати"><select data-k="type" aria-label="Як рахувати">' + opt('duty', s.type, 'Чергування (нижня частина)') + opt('day', s.type, 'Денні щодня (верхня)') + opt('zav', s.type, 'Денні щодня (зав.)') + '</select></td>';
+      if ((s.type === 'day' || s.type === 'zav') && (rights.asduty || (M().asDuty || {})[s.id])) { var adOn = !!(M().asDuty || {})[s.id], adLock = !rights.asduty;
+        h = h.replace(/<\/select><\/td>$/, '</select><label title="Лише в обраному місяці: години рахуються як у чергового (доби, норма за ставкою, відпочинок), рядок — у нижній частині бланка" style="display:flex;align-items:center;gap:4px;font-size:12px;margin-top:4px;color:' + (adOn ? '#b45309;font-weight:600' : 'var(--muted)') + '"><input type="checkbox" data-k="asduty"' + (adOn ? ' checked' : '') + (adLock ? ' disabled title="Змінювати цю позначку може лише адміністратор"' : '') + ' style="width:15px;height:15px"> ' + MONTHS[+S.ym.slice(5, 7) - 1] + ' — як черговий</label></td>'); }
+      h += (s.type === 'day' ? '<td data-label="Денні год на 1,0 ставки">' : '<td>') + (s.type === 'day' ? '<select data-k="base" aria-label="Денні години">' + '<option value=""' + (s.base == null ? ' selected' : '') + '>за правилами (' + hmm(DAYLEN) + ')</option>' + opt(6, s.base, '6') + opt(7.2, s.base, '7.12 (36 год/тиж)') + opt(7.7, s.base, '7.42 (08.00–15.42)') + opt(8, s.base, '8 (08.00–16.00)') + '</select>' : '<span class="hint">—</span>') + '</td>';
       if (s.type === 'duty') {
         var ds = s.days || [];
         h += '<td data-label="Дні чергувань" style="white-space:nowrap">' + W.map(function (w, wi) {
@@ -1115,13 +1047,9 @@
       sel('nightFrom', 'Нічні години з', hrs) + sel('nightTo', 'до', hrs) +
       sel('restPref', 'Бажаний відпочинок після доби', rest) + sel('restMin', 'Мінімальний відпочинок', rest) +
       num('dayPart', 'Денна частина доби, год') +
-      sel('dayLen', 'Денна зміна (завідувач, нові денні працівники)', [[7.7, '7.42 (08:00–15:42)'], [8, '8 год (08:00–16:00)']]) +
+      '<label class="f">Денна зміна на 1,0 ставки, год.хв (0,75 / 0,5 / 0,25 — пропорційно) <input type="text" inputmode="decimal" data-cfg="dayLen" data-hm="1" value="' + hmm(DAYLEN) + '" style="width:120px"' + (isOwner ? '' : ' disabled title="Змінює лише адміністратор"') + '></label>' +
       chk('splitLast', 'В останній день місяця години після півночі переходять на наступний місяць') +
       chk('extra', 'Другий черговий удень — щоб добрати години до норми') +
-      '<div style="flex-basis:100%;font-weight:600;margin-top:6px">Завідувач (денні години до норми)</div>' +
-      chk('zavCover', 'Завідувач закриває ранок, коли в лікаря перебір') +
-      chk('zavRest', 'Завідувач відпочиває після свого чергування (як черговий); якщо вимкнено — наступного дня після доби може працювати вдень') +
-      chk('zavSameDay', 'Завідувач може працювати вдень у день свого чергування, якщо воно не цілодобове і час не перетинається (напр. чергування з 16:00)') +
       '<button type="button" class="btn small" id="rulesReset">Повернути стандартні правила</button>';
     renderAccess();
   }
@@ -1290,6 +1218,12 @@
   document.getElementById('rules').addEventListener('change', function (e) {
     var k = e.target.dataset.cfg; if (!k) return;
     var c = applyCfg(), v = e.target.type === 'checkbox' ? e.target.checked : parseFloat(e.target.value);
+    if (k === 'dayLen') {
+      if (!isOwner) { renderStaff(); return; }
+      var mm = /^\s*(\d{1,2})(?:[.,:](\d{1,2}))?\s*$/.exec(e.target.value), hh = mm ? +mm[1] : NaN, mi = mm && mm[2] ? +(mm[2].length === 1 ? mm[2] + '0' : mm[2]) : 0;
+      v = Math.round((hh + mi / 60) * 10000) / 10000;
+      if (!mm || mi >= 60 || !(v >= 1 && v <= 12)) { toast('Денна зміна — у форматі год.хв, напр. 7.42 (від 1 до 12 год)'); renderStaff(); return; }
+    }
     if (k === 'week' && !(v >= 10 && v <= 60)) { toast('Тижнева норма — від 10 до 60 годин'); renderStaff(); return; }
     if (k === 'dayPart' && !(v >= 1 && v <= 12)) { toast('Денна частина доби — від 1 до 12 годин'); renderStaff(); return; }
     c[k] = v;
@@ -1322,9 +1256,10 @@
     var s = S.staff[+tr.dataset.i], k = e.target.dataset.k; if (!k) return;
     var v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     if (k === 'st' || k === 'base') v = parseFloat(v);
+    if (k === 'asduty') { if (!rights.asduty) { renderStaff(); return; } var md0 = M(); md0.asDuty = md0.asDuty || {}; if (v) md0.asDuty[s.id] = true; else delete md0.asDuty[s.id]; save(); renderStaff(); renderSchedule(); return; }
     var oldName = s.name;
     s[k] = v;
-    if (k === 'type' && v === 'day' && !s.base) s.base = 8;
+    if (k === 'base' && isNaN(v)) { delete s.base; v = undefined; }
     if (k === 'name') { Object.keys(S.months).forEach(function (ym) { var a = S.months[ym].abs; if (a[oldName.trim()] && !S.staff.some(function (x) { return x !== s && x.name.trim() === oldName.trim(); })) { a[v.trim()] = a[oldName.trim()]; delete a[oldName.trim()]; } }); }
     save(); renderStaff(); renderSchedule();
   });
@@ -1349,7 +1284,7 @@
     save(); renderStaff(); renderSchedule();
   });
   document.getElementById('addDuty').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий лікар', pos: 'лікар', st: 1, type: 'duty' }); save(); renderStaff(); });
-  document.getElementById('addDay').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий працівник', pos: '', st: 1, type: 'day', base: applyCfg().dayLen === 8 ? 8 : 7.7 }); save(); renderStaff(); });
+  document.getElementById('addDay').addEventListener('click', function () { S.staff.push({ id: uid(), name: 'Новий працівник', pos: '', st: 1, type: 'day' }); save(); renderStaff(); });
   document.getElementById('signs').addEventListener('change', function (e) {
     var k = e.target.dataset.sign; if (!k) return;
     if (k === 'dept' || k === 'title' || k === 'note') S[k] = e.target.value; else S.signs[k] = e.target.value;
@@ -1369,7 +1304,6 @@
         Object.keys(x.months || {}).forEach(function (ym) { delete x.months[ym].pubAt; delete x.months[ym].pubSig; });
         delete x.synced;
         // imported data was made when «завідувач закриває ранок» was ON by default → preserve it, so the dept keeps its behaviour
-        if (!x.cfg || x.cfg.zavCover === undefined) { x.cfg = x.cfg || {}; x.cfg.zavCover = true; }
         S = x; save(); afterLoad(); renderStaff(); toast('Відновлено з файлу');
       });
     };
@@ -1421,14 +1355,14 @@
     loadLog();
   }
   function drawUsers() {
-    var me = SB.userId(), RN = [['viewer', 'працівник'], ['editor', 'укладач'], ['admin', 'адміністратор']], RT = [['sched', 'графік і позначки'], ['staff', 'склад і правила'], ['pub', 'публікація']];
+    var me = SB.userId(), RN = [['viewer', 'працівник'], ['editor', 'укладач'], ['admin', 'адміністратор']], RT = [['sched', 'графік і позначки'], ['staff', 'склад і правила'], ['pub', 'публікація'], ['asduty', '«як черговий» для денних і зав.']];
     var h = '<table class="us"><thead><tr><th>Користувач</th><th>Роль</th><th>Рядок у складі</th><th>Права укладача</th><th>Стан</th><th></th></tr></thead><tbody>';
     users.forEach(function (u) {
       var self = u.id === me, r = u.rights || {};
       h += '<tr data-u="' + u.id + '"' + (u.blocked ? ' class="blk"' : '') + '><td data-label="Користувач"><b>' + esc(u.username) + '</b>' + (self ? ' <span class="badge">це ви</span>' : '') + '<br><input data-f="full_name" value="' + esc(u.full_name || '') + '" placeholder="ПІБ" style="width:180px;margin-top:4px"></td>';
       h += '<td data-label="Роль"><select data-f="role"' + (self ? ' disabled title="Свою роль змінити не можна"' : '') + '>' + RN.map(function (x) { return '<option value="' + x[0] + '"' + (u.role === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></td>';
       h += '<td data-label="Рядок у складі"><select data-f="staff_name">' + staffOpts(u.staff_name || '') + '</select></td>';
-      h += '<td data-label="Права укладача" class="rt">' + (u.role === 'editor' ? RT.map(function (x) { return '<label><input type="checkbox" data-r="' + x[0] + '"' + (r[x[0]] !== false ? ' checked' : '') + ' style="width:16px;height:16px"> ' + x[1] + '</label>'; }).join('') : '<span class="hint">' + (u.role === 'admin' ? 'усі' : 'лише перегляд') + '</span>') + '</td>';
+      h += '<td data-label="Права укладача" class="rt">' + (u.role === 'editor' ? RT.map(function (x) { return '<label><input type="checkbox" data-r="' + x[0] + '"' + ((x[0] === 'asduty' ? r.asduty === true : r[x[0]] !== false) ? ' checked' : '') + ' style="width:16px;height:16px"> ' + x[1] + '</label>'; }).join('') : '<span class="hint">' + (u.role === 'admin' ? 'усі' : 'лише перегляд') + '</span>') + '</td>';
       h += '<td data-label="Стан">' + (u.blocked ? '<span class="badge red">заблоковано</span>' : '<span class="badge grn">активний</span>') + (u.must_change_password ? ' <span class="badge amb">тимчасовий пароль</span>' : '') + '<br><span class="hint">вхід: ' + when(u.last_seen) + '</span></td>';
       h += '<td><div class="acts"><button type="button" class="btn small" data-a="pass">Новий пароль</button>' +
         (self ? '' : '<button type="button" class="btn small' + (u.blocked ? '' : ' danger') + '" data-a="' + (u.blocked ? 'unblock' : 'block') + '">' + (u.blocked ? 'Розблокувати' : 'Заблокувати') + '</button><button type="button" class="btn small danger" data-a="del">Видалити</button>') + '</div></td></tr>';
@@ -1438,6 +1372,7 @@
   }
   function userById(id) { return users.filter(function (u) { return u.id === id; })[0]; }
   function admCall(body, okMsg) {
+    if (window.GRAFIK_PREVIEW && body.action !== 'list') { toast('Попередній перегляд — зміни користувачів не зберігаються'); return Promise.reject(new Error('preview')); }
     return SB.fn('admin-users', body).then(function (r) { if (okMsg) toast(okMsg); return r; }, function (e) { toast(fnErr(e), 5000); throw e; });
   }
   function reloadUsers() { return SB.fn('admin-users', { action: 'list' }).then(function (r) { users = r.users || []; drawUsers(); }); }
@@ -1445,7 +1380,7 @@
     var tr = e.target.closest('tr[data-u]'); if (!tr) return;
     var u = userById(tr.dataset.u), f = e.target.dataset.f, r = e.target.dataset.r, body = { action: 'update', id: u.id };
     if (f) body[f] = e.target.value;
-    if (r) { var rr = Object.assign({ sched: true, staff: true, pub: true }, u.rights || {}); rr[r] = e.target.checked; body.rights = rr; }
+    if (r) { var rr = Object.assign({ sched: true, staff: true, pub: true, asduty: false }, u.rights || {}); rr[r] = e.target.checked; body.rights = rr; }
     admCall(body, 'Збережено').then(reloadUsers, reloadUsers);
   });
   document.getElementById('usersBox').addEventListener('click', function (e) {
@@ -1481,6 +1416,7 @@
     if (!/^\d+\.\d+\.\d+$/.test(v)) { toast('Версія у форматі 1.2.3'); return; }
     var maint = document.getElementById('cfgMaint').checked;
     var go = function () {
+      if (window.GRAFIK_PREVIEW) { toast('Попередній перегляд — налаштування не зберігаються'); return; }
       SB.update('app_config?id=eq.1', { min_version: v, maintenance: maint, message: document.getElementById('cfgMsg').value.trim() }).then(function () {
         toast('Збережено'); SB.rpc('log_event', { p_action: 'config', p_details: { min_version: v, maintenance: maint } }).then(loadLog, function () {});
       }, function () { toast('Не вдалося зберегти'); });
@@ -1590,7 +1526,7 @@
       if (fresh) SB.rpc('log_event', { p_action: 'login' }).then(null, function () {});
       var effRole = window.GRAFIK_VIEWER_ONLY ? 'viewer' : profile.role;
       isOwner = effRole === 'admin';
-      rights = isOwner ? Object.assign({}, FULL) : effRole === 'editor' ? Object.assign({}, FULL, profile.rights || {}) : { sched: false, staff: false, pub: false };
+      rights = isOwner ? Object.assign({}, FULL, { asduty: true }) : effRole === 'editor' ? Object.assign({}, FULL, profile.rights || {}) : { sched: false, staff: false, pub: false };
       if (effRole === 'viewer') return startViewer();
       return startEditor();
     }
@@ -1640,7 +1576,7 @@
     }, function (e) { if (e.status === 401 || e.code === 'user_banned') toGate('Сеанс завершився — увійдіть знову.'); });
   });
   boot(false);
-  window.__grafik = { generate: generate, S: function () { return S; }, setS: function (x) { S = x; }, save: save, setRole: function (r) { role = r; online = true; }, flush: flush };
+  window.__grafik = { generate: generate, S: function () { return S; }, setS: function (x) { S = x; }, save: save, renderAll: function () { renderStaff(); renderSchedule(); }, setRole: function (r) { role = r; online = true; }, setRights: function (x) { rights = x; }, setOwner: function (x) { isOwner = x; }, flush: flush };
 })();
 </script>
 </body>
