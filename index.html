@@ -1203,7 +1203,7 @@
     };
     var colP = function (el, sz) { return Array.prototype.map.call(el.children, function (c) { return para(runs(c, sz), 'center'); }).join(''); };
     var tops = src.querySelectorAll('.top > .col, .top > .title'), body = '';
-    body += plainTbl([colP(tops[0], 22), '<w:p/>' + colP(tops[1], 30), colP(tops[2], 22)], [3800, W - 7600, 3800]);
+    body += plainTbl([colP(tops[0], 22), '<w:p/>' + colP(tops[1], 30), colP(tops[2], 22)], [4800, W - 9600, 4800]);
     // головна таблиця: колонки в мм як у друку
     var mm = function (v) { return Math.round(v * 56.7); };
     var fixed = [6, 34, 14, 7].map(mm), tail = [7, 8, 11, 12].map(mm), rest = W - fixed.concat(tail).reduce(function (a, b) { return a + b; }, 0);
