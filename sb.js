@@ -5,7 +5,13 @@ if (window.AndroidHost && !window.grafikHost) {
   window.grafikHost = {
     platform: 'android',
     version: window.AndroidHost.version(),
-    saveFile: function (name, data, type) { window.AndroidHost.saveFile(name, type || '', String(data)); return true; },
+    saveFile: function (name, data, type) {
+      if (data instanceof Uint8Array) { // .docx → base64
+        var t = ''; for (var i = 0; i < data.length; i += 8192) t += String.fromCharCode.apply(null, data.subarray(i, i + 8192));
+        window.AndroidHost.saveFileB64(name, type || '', btoa(t)); return true;
+      }
+      window.AndroidHost.saveFile(name, type || '', String(data)); return true;
+    },
     checkUpdate: function (manual) { window.AndroidHost.checkUpdate(!!manual); },
     print: function () { window.AndroidHost.print(); }
   };

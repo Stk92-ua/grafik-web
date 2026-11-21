@@ -175,14 +175,30 @@
     .card { border: 0; padding: 0; margin: 0; }
     .scroll { overflow: visible; }
     .sheet { border: 0; padding: 0; min-width: 0; width: 100%; }
+    /* на всю висоту аркуша: 210 − 2×7 мм поля; рядки таблиці розтягуються на вільне місце */
+    .sheet { display: flex; flex-direction: column; min-height: 194mm; }
+    .sheet table.g { flex: 1 0 auto; }
+    .sheet .legend { display: none; }
     table.g { width: 100%; }
-    table.g th, table.g td { height: 19px; font-size: 9.5px; }
-    table.g td.sm { font-size: 8px; }
+    /* екранні ширини (≈1420px) не влазять в A4 → у друку: фіксовані колонки в мм, дні й підсумки ділять решту */
+    table.g col { width: auto !important; }
+    table.g col:nth-child(1) { width: 6mm !important; }
+    table.g col:nth-child(2) { width: 34mm !important; }
+    table.g col:nth-child(3) { width: 14mm !important; }
+    table.g col:nth-child(4) { width: 7mm !important; }
+    table.g col:nth-last-child(4) { width: 7mm !important; }
+    table.g col:nth-last-child(3) { width: 8mm !important; }
+    table.g col:nth-last-child(2) { width: 11mm !important; }
+    table.g col:nth-last-child(1) { width: 12mm !important; }
+    table.g thead th { height: 17mm; }
+    table.g th, table.g td { height: 19px; font-size: 10.5px; }
+    table.g td.l { font-size: 11.5px; }
+    table.g td.sm { font-size: 8.5px; }
     table.g .mark { background: none; }
     table.g td.c:hover { outline: none; }
-    .sheet .top { font-size: 11px; }
-    .note { font-size: 10px; }
-    .signs { font-size: 12px; }
+    .sheet .top { font-size: 12px; }
+    .note { font-size: 11px; }
+    .signs { font-size: 13px; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
@@ -201,6 +217,7 @@
     <span id="syncState" class="hint" aria-live="polite"></span>
     <button type="button" class="btn small" id="roleBtn" hidden></button>
     <button type="button" class="btn primary" id="printBtn">Друк А4</button>
+    <button type="button" class="btn" id="wordBtn" title="Зберегти бланк файлом .docx — відкривається у Word для ручного редагування">У Word</button>
     <span id="who"></span>
     <button type="button" class="btn small" id="logoutBtn">Вийти</button>
   </div>
@@ -1139,6 +1156,93 @@
     var sc = document.getElementById('sheetCard'), was = sc.hidden; sc.hidden = false;
     setTimeout(function () { window.print(); sc.hidden = was; }, 50);
   }
+  // Бланк у Word (.docx): A4 альбомна, для ручного редагування. Будується з уже намальованого бланка (#sheet).
+  function crc32(b) {
+    var t = crc32.t; if (!t) { t = crc32.t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } }
+    var x = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) x = t[(x ^ b[i]) & 255] ^ (x >>> 8); return (x ^ 0xFFFFFFFF) >>> 0;
+  }
+  function zipStore(files) { // [{name, text}] → Uint8Array (zip без стиснення)
+    var enc = new TextEncoder(), parts = [], cen = [], off = 0;
+    var u16 = function (v) { return [v & 255, (v >>> 8) & 255]; }, u32 = function (v) { return [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]; };
+    files.forEach(function (f) {
+      var nm = enc.encode(f.name), dt = enc.encode(f.text), crc = crc32(dt);
+      var common = [].concat(u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(dt.length), u32(dt.length), u16(nm.length), u16(0));
+      var lh = new Uint8Array([].concat(u32(0x04034b50), common)); parts.push(lh, nm, dt);
+      cen.push(new Uint8Array([].concat(u32(0x02014b50), u16(20), common, u16(0), u16(0), u16(0), u32(0), u32(off))), nm);
+      off += lh.length + nm.length + dt.length;
+    });
+    var cs = cen.reduce(function (a, x) { return a + x.length; }, 0);
+    parts = parts.concat(cen, [new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(cs), u32(off), u16(0)))]);
+    var out = new Uint8Array(parts.reduce(function (a, x) { return a + x.length; }, 0)), p = 0;
+    parts.forEach(function (x) { out.set(x, p); p += x.length; }); return out;
+  }
+  function docxXml() {
+    var G = renderSchedule(); if (!G) return null;
+    var src = document.getElementById('sheet'), D = G.D;
+    var X = function (t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+    var hex = function (c) { var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || ''); return m ? [m[1], m[2], m[3]].map(function (v) { return ('0' + (+v).toString(16)).slice(-2); }).join('').toUpperCase() : '000000'; };
+    // текст вузла → <w:r> з жирним/курсивом/підкресленням/кольором; <br> → розрив рядка
+    var runs = function (node, sz, base) {
+      var out = '';
+      (function walk(n, f) {
+        if (n.nodeType === 3) { if (n.nodeValue) out += '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>' + (f.b ? '<w:b/>' : '') + (f.i ? '<w:i/>' : '') + (f.u ? '<w:u w:val="single"/>' : '') + '<w:color w:val="' + f.c + '"/><w:sz w:val="' + (f.sz || sz) + '"/></w:rPr><w:t xml:space="preserve">' + X(n.nodeValue.replace(/ /g, ' ')) + '</w:t></w:r>'; return; }
+        if (n.nodeType !== 1) return;
+        if (n.tagName === 'BR') { out += '<w:r><w:br/></w:r>'; return; }
+        var cs = getComputedStyle(n), g = { b: +cs.fontWeight >= 600, i: cs.fontStyle === 'italic', u: (cs.textDecorationLine || '').indexOf('underline') >= 0 || f.u, c: hex(cs.color), sz: f.sz };
+        if (n.tagName === 'B' && n.style.fontSize) g.sz = Math.round(parseFloat(n.style.fontSize) * 1.3);
+        Array.prototype.forEach.call(n.childNodes, function (k) { walk(k, g); });
+      })(node, base || { c: '000000' });
+      return out;
+    };
+    var para = function (inner, jc, after) { return '<w:p><w:pPr><w:spacing w:before="0" w:after="' + (after || 0) + '" w:line="240" w:lineRule="auto"/>' + (jc ? '<w:jc w:val="' + jc + '"/>' : '') + '</w:pPr>' + inner + '</w:p>'; };
+    var noB = '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>';
+    var W = 16838 - 2 * 400; // ширина тексту, twips (A4 альбомна, поля 7 мм)
+    var plainTbl = function (cells, widths) {
+      return '<w:tbl><w:tblPr><w:tblW w:w="' + W + '" w:type="dxa"/><w:tblLayout w:type="fixed"/>' + noB + '</w:tblPr><w:tblGrid>' + widths.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid><w:tr>' +
+        cells.map(function (c, i) { return '<w:tc><w:tcPr><w:tcW w:w="' + widths[i] + '" w:type="dxa"/></w:tcPr>' + c + '</w:tc>'; }).join('') + '</w:tr></w:tbl>';
+    };
+    var colP = function (el, sz) { return Array.prototype.map.call(el.children, function (c) { return para(runs(c, sz), 'center'); }).join(''); };
+    var tops = src.querySelectorAll('.top > .col, .top > .title'), body = '';
+    body += plainTbl([colP(tops[0], 22), '<w:p/>' + colP(tops[1], 30), colP(tops[2], 22)], [3800, W - 7600, 3800]);
+    // головна таблиця: колонки в мм як у друку
+    var mm = function (v) { return Math.round(v * 56.7); };
+    var fixed = [6, 34, 14, 7].map(mm), tail = [7, 8, 11, 12].map(mm), rest = W - fixed.concat(tail).reduce(function (a, b) { return a + b; }, 0);
+    var widths = fixed.concat(Array(D).fill(Math.floor(rest / D)), tail);
+    var tbl = src.querySelector('table.g'), rows = tbl.querySelectorAll('tr');
+    var rowH = Math.max(280, Math.min(640, Math.floor(7200 / (rows.length - 1)))); // ≈ 127 мм на тіло таблиці
+    var bd = '<w:tcBorders><w:top w:val="single" w:sz="4" w:color="000000"/><w:left w:val="single" w:sz="4" w:color="000000"/><w:bottom w:val="single" w:sz="4" w:color="000000"/><w:right w:val="single" w:sz="4" w:color="000000"/></w:tcBorders>';
+    body += '<w:p><w:pPr><w:spacing w:before="0" w:after="60"/></w:pPr></w:p>';
+    body += '<w:tbl><w:tblPr><w:tblW w:w="' + W + '" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="10" w:type="dxa"/><w:right w:w="10" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>' + widths.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>';
+    Array.prototype.forEach.call(rows, function (tr, ri) {
+      body += '<w:tr><w:trPr>' + (ri === 0 ? '<w:tblHeader/>' : '') + '<w:trHeight w:val="' + (ri === 0 ? 960 : rowH) + '" w:hRule="exact"/></w:trPr>';
+      Array.prototype.forEach.call(tr.children, function (td, ci) {
+        var fill = td.classList.contains('we') ? 'FBE3E3' : td.classList.contains('abs') ? 'FEF3C7' : '';
+        var vt = td.classList.contains('vt'), sz = ri === 0 ? 16 : td.classList.contains('sm') ? 13 : td.classList.contains('l') ? 20 : (ci >= 4 && ci < 4 + D) ? 15 : 17;
+        body += '<w:tc><w:tcPr><w:tcW w:w="' + widths[ci] + '" w:type="dxa"/>' + bd + (fill ? '<w:shd w:val="clear" w:color="auto" w:fill="' + fill + '"/>' : '') + (vt ? '<w:textDirection w:val="btLr"/>' : '') + '<w:vAlign w:val="center"/></w:tcPr>' +
+          para(runs(td, sz), td.classList.contains('l') ? 'left' : 'center') + '</w:tc>';
+      });
+      body += '</w:tr>';
+    });
+    body += '</w:tbl>';
+    var note = src.querySelector('.note'); if (note) body += '<w:p><w:pPr><w:spacing w:before="80" w:after="0"/></w:pPr>' + runs(note, 17) + '</w:p>';
+    var sg = src.querySelector('.signs'); if (sg) body += '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>' + plainTbl([para(runs(sg.children[0], 22)), para(runs(sg.children[1], 22), 'right')], [W / 2, W / 2]);
+    var doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + body +
+      '<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="400" w:right="400" w:bottom="400" w:left="400" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>';
+    return doc;
+  }
+  function docxBytes() {
+    var doc = docxXml(); if (!doc) return null;
+    return zipStore([
+      { name: '[Content_Types].xml', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>' },
+      { name: '_rels/.rels', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>' },
+      { name: 'word/document.xml', text: doc }
+    ]);
+  }
+  function wordFile() {
+    var b = docxBytes(); if (!b) return;
+    var G = currentG();
+    saveFile('Графік ' + MONTHS[G.mo] + ' ' + G.y + '.docx', b, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  }
   /* ---------------- wiring ---------------- */
   function renderAll() {
     document.body.classList.toggle('loading', role === null);
@@ -1166,6 +1270,10 @@
       ['sched', 'staff', 'cal', 'adm'].forEach(function (t) { document.getElementById('tab-' + t).hidden = t !== activeTab; });
       renderAll();
     });
+  });
+  document.getElementById('wordBtn').addEventListener('click', function () {
+    if (activeTab !== 'sched') document.querySelector('.tabs button[data-tab="sched"]').click();
+    setTimeout(wordFile, 30);
   });
   document.getElementById('printBtn').addEventListener('click', function () {
     if (activeTab !== 'sched') document.querySelector('.tabs button[data-tab="sched"]').click();
@@ -1576,7 +1684,7 @@
     }, function (e) { if (e.status === 401 || e.code === 'user_banned') toGate('Сеанс завершився — увійдіть знову.'); });
   });
   boot(false);
-  window.__grafik = { generate: generate, S: function () { return S; }, setS: function (x) { S = x; }, save: save, renderAll: function () { renderStaff(); renderSchedule(); }, setRole: function (r) { role = r; online = true; }, setRights: function (x) { rights = x; }, setOwner: function (x) { isOwner = x; }, flush: flush };
+  window.__grafik = { docxB64: function () { var b = docxBytes(), t = ''; for (var i = 0; i < b.length; i++) t += String.fromCharCode(b[i]); return btoa(t); }, generate: generate, S: function () { return S; }, setS: function (x) { S = x; }, save: save, renderAll: function () { renderStaff(); renderSchedule(); }, setRole: function (r) { role = r; online = true; }, setRights: function (x) { rights = x; }, setOwner: function (x) { isOwner = x; }, flush: flush };
 })();
 </script>
 </body>
